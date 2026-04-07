@@ -1,0 +1,294 @@
+#maiden_name_row {
+    display: none;
+}
+
+.spouse-item {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid #e5e5e5;
+    background: #fafafa;
+    border-radius: 6px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.spouse-item select {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.spouse-item .select2-container {
+    margin-bottom: 12px !important;
+}
+
+.spouse-item input[type="text"] {
+    width: 140px;
+    margin-right: 12px;
+    margin-bottom: 12px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.spouse-item label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 15px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.spouse-item label input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+.spouse-item button.remove-spouse {
+    margin-left: 0;
+    background: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.spouse-item button.remove-spouse:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+.child-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid #e5e5e5;
+    background: #fafafa;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+}
+
+.child-item select {
+    flex: 1;
+    margin-right: 12px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.child-item .select2-container {
+    flex: 1;
+    margin-right: 12px !important;
+}
+
+.child-item button.remove-child {
+    margin-left: 12px;
+    background: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.child-item button.remove-child:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+#family_member_children {
+    width: 100%;
+    min-height: 40px;
+}
+
+#children-container {
+    margin-bottom: 15px;
+}
+
+.description {
+    color: #666;
+    font-style: italic;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+.sync-notification {
+    color: #0073aa;
+    font-size: 12px;
+    margin-top: 5px;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Стили для уведомлений */
+.notice {
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.notice-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.notice-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* Стили Select2 */
+.select2-container {
+    width: 100% !important;
+    margin-bottom: 10px;
+}
+
+.select2-selection {
+    min-height: 36px !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+}
+
+.select2-selection__choice {
+    background-color: #0073aa !important;
+    border: 1px solid #005a87 !important;
+    border-radius: 3px !important;
+    color: #fff !important;
+    padding: 5px 8px !important;
+    margin: 3px !important;
+    font-size: 13px !important;
+}
+
+.select2-selection__choice__remove {
+    color: #fff !important;
+    margin-right: 5px !important;
+}
+
+.select2-selection__choice__remove:hover {
+    color: #ffeb3b !important;
+}
+
+.select2-selection__rendered {
+    padding-left: 10px !important;
+}
+
+.select2-selection__arrow {
+    height: 34px !important;
+}
+
+/* Кнопки */
+button#add-spouse,
+button#add-child {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+button#add-spouse:hover,
+button#add-child:hover {
+    background: #005a87;
+    border-color: #005a87;
+}
+
+/* Адаптивность */
+@media (max-width: 782px) {
+    .spouse-item input[type="text"] {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+    
+    .spouse-item label {
+        display: block;
+        margin-bottom: 10px;
+    }
+    
+    .child-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .child-item select {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+    
+    .child-item button.remove-child {
+        margin-left: 0;
+        align-self: flex-start;
+    }
+}
+
+/* Стили для страницы настроек */
+.family-tree-settings-container {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    margin-top: 15px;
+}
+
+.license-status.pro-active {
+    color: #00a32a;
+    font-weight: bold;
+}
+
+.license-status.pro-inactive {
+    color: #d63638;
+    font-weight: bold;
+}
+
+.pro-features-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.pro-features-section ul {
+    list-style: none;
+}
+
+.pro-features-section ul li:before {
+    content: "✓";
+    color: #00a32a;
+    margin-right: 8px;
+}
+
+/* ========== ИСПРАВЛЕНИЕ ПРОБЛЕМЫ С WPFOOTER ========== */
+/* Добавляем отступы чтобы footer не перекрывал контент */
+#family_group_members {
+    margin-bottom: 120px !important;
+    padding-bottom: 60px !important;
+}
+
+.ft-group-members-container {
+    margin-bottom: 140px !important;
+    padding-bottom: 80px !important;
+}
+
+.ft-controls-bar {
+    position: relative;
+    z-index: 1;
+}
+
+/* Увеличиваем высоту контента метабокса */
+#family_group_members .inside {
+    padding-bottom: 100px !important;
+    margin-bottom: 50px !important;
+}
+
+/* Гарантируем что footer будет ниже всего контента */
+.post-type-family_group #wpfooter {
+    position: relative !important;
+    margin-top: 50px !important;
+}

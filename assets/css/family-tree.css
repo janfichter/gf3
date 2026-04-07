@@ -1,0 +1,770 @@
+@import url("https://fonts.googleapis.com/css?family=Open+Sans:400,600,400italic,600italic|Roboto+Slab:400,700");
+
+.f3 {
+  height: 60vh;
+  width: 100%;
+  max-width: 100%;
+  margin: auto;
+  position: relative;
+}
+
+.f3 .cursor-pointer {
+  cursor: pointer;
+}
+
+.f3 svg.main_svg {
+  width: 100%;
+  height: 100%;
+  background-color: #f2f2f2;
+  color: #3b5560;
+}
+
+.f3 svg.main_svg text {
+  fill: currentColor;
+  font-weight: 600;
+}
+
+.f3 rect.card-female {
+  fill: lightpink;
+}
+
+.f3 rect.card-male {
+  fill: lightblue;
+}
+
+.f3 .card-female .card-body-rect,
+.f3 .card-female .text-overflow-mask {
+  fill: white;
+  cursor: pointer;
+}
+
+.f3 .card-female:hover .card-body-rect,
+.f3 .card-female:hover .text-overflow-mask {
+  fill: lightpink;
+}
+
+.f3 .card-male .card-body-rect,
+.f3 .card-male .text-overflow-mask {
+  fill: white;
+  cursor: pointer;
+}
+
+.f3 .card-male:hover .card-body-rect,
+.f3 .card-male:hover .text-overflow-mask {
+  fill: lightblue;
+}
+
+.f3 .card-female .card-outline {
+  stroke: lightpink;
+  stroke-width: 3;
+}
+
+.f3 .card-male .card-outline {
+  stroke: lightblue;
+  stroke-width: 3;
+}
+
+.f3 .card-genderless .card-body-rect,
+.f3 .card-genderless .text-overflow-mask {
+  fill: lightgray;
+}
+
+.f3 .card_add .card-body-rect {
+  fill: #3b5560;
+  stroke-width: 4px;
+  stroke: #fff;
+  cursor: pointer;
+}
+
+.f3 g.card_add text {
+  fill: #fff;
+}
+
+.f3 .card-main {
+  stroke: #000;
+}
+
+.f3 .card_family_tree rect {
+  transition: 0.3s;
+}
+
+.f3 .card_family_tree:hover rect {
+  transform: scale(1.1);
+}
+
+.f3 .card_add_relative {
+  cursor: pointer;
+  color: #fff;
+  transition: 0.3s;
+}
+
+.f3 .card_add_relative circle {
+  fill: rgba(0, 0, 0, 0);
+}
+
+.f3 .card_add_relative:hover {
+  color: black;
+}
+
+.f3 .card_edit.pencil_icon {
+  color: #fff;
+  transition: 0.3s;
+}
+
+.f3 .card_edit.pencil_icon:hover {
+  color: black;
+}
+
+.f3 .card_break_link,
+.f3 .link_upper,
+.f3 .link_lower,
+.f3 .link_particles {
+  transform-origin: 50% 50%;
+  transition: 1s;
+}
+
+.f3 .card_break_link {
+  color: #000;
+}
+
+.f3 .card_break_link.closed .link_upper {
+  transform: translate(-140.5px, 655.6px);
+}
+
+.f3 .card_break_link.closed .link_upper g {
+  transform: rotate(-58deg);
+}
+
+.f3 .card_break_link.closed .link_particles {
+  transform: scale(0);
+}
+
+.f3 .input-field input {
+  height: 2.5rem !important;
+}
+
+.f3 .input-field > label:not(.label-icon).active {
+  -webkit-transform: translateY(-8px) scale(0.8);
+  transform: translateY(-8px) scale(0.8);
+}
+
+/* Дополнительные стили для корректного отображения */
+
+.card {
+  cursor: pointer;
+}
+
+.card-body-rect {
+  rx: 8;
+  ry: 8;
+}
+
+.card_image {
+  border-radius: 50%;
+}
+
+.card_image image {
+  border-radius: 50%;
+}
+
+.link.spouse {
+  stroke: #ff6b6b;
+  stroke-width: 3;
+  stroke-opacity: 0.7;
+  position: relative;
+}
+
+.link.child {
+  stroke: #4ecdc4;
+  stroke-width: 2;
+  stroke-opacity: 0.7;
+}
+
+.link:hover {
+  stroke-opacity: 1;
+  stroke-width: 4;
+}
+
+/* Стили для адаптивности */
+@media (max-width: 768px) {
+  .f3 {
+    height: 70vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .f3 {
+    height: 80vh;
+  }
+}
+
+/* Стили для теней и эффектов */
+.card-circle {
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.1));
+}
+
+/* Стили для текста в карточках */
+.card text {
+  font-family: 'Open Sans', sans-serif;
+  pointer-events: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.card tspan {
+  pointer-events: none;
+}
+
+/* Стили для страницы персоны */
+.family-member-single {
+    padding: 20px 0;
+    min-height: calc(100vh - 200px);
+}
+
+.family-member-content {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 30px;
+}
+
+.family-member-header {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid #eee;
+	align-items: flex-start;
+    flex-direction: column;
+}
+.family-member-header h1 {
+	margin-top: 20px!important;
+    margin-bottom: 0px!important;
+}
+
+.family-member-avatar img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #f0f0f0;
+}
+
+.family-member-title h1 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 2em;
+    line-height: 1.2;
+}
+
+.family-member-header .button {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #ff4c09;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 10px;
+	transition: all 0.2s ease;
+}
+.family-member-header .button:hover {
+    background: #e06633;
+	transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.maiden-name {
+    color: #666;
+    font-style: italic;
+    margin: 5px 0;
+}
+
+.family-member-dates {
+    color: #888;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.family-member-details h2 {
+    color: #444;
+    border-bottom: 2px solid #ff7744;
+    padding-bottom: 5px;
+    margin: 25px 0 15px 0;
+}
+
+.family-member-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.family-member-table th,
+.family-member-table td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.family-member-table th {
+    width: 30%;
+    font-weight: bold;
+    color: #555;
+    background-color: #f8f9fa;
+}
+
+/* Общие стили для секций родственников */
+.family-member-parents ul,
+.family-member-siblings ul,
+.family-member-spouses ul,
+.family-member-children ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.family-member-parents li,
+.family-member-siblings li,
+.family-member-spouses li,
+.family-member-children li {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.family-member-parents li:last-child,
+.family-member-siblings li:last-child,
+.family-member-spouses li:last-child,
+.family-member-children li:last-child {
+    border-bottom: none;
+}
+
+.family-member-parents a,
+.family-member-siblings a,
+.family-member-spouses a,
+.family-member-children a {
+    color: #ff7744;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.family-member-parents a:hover,
+.family-member-siblings a:hover,
+.family-member-spouses a:hover,
+.family-member-children a:hover {
+    text-decoration: underline;
+}
+
+.family-member-spouses .spouse-info {
+    font-size: 0.9em;
+    color: #666;
+    margin-left: 5px;
+}
+
+/* Стили для пометок братьев и сестер */
+.sibling-relation-type {
+    font-size: 0.9em;
+    color: #666;
+    margin-left: 5px;
+}
+
+/* Новая раскладка для страницы персоны */
+.family-member-layout {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+	justify-content: space-between;
+}
+
+.family-member-content-gutenberg {
+    flex: 0 0 calc(75% - 30px);
+    /* Можно добавить стили для основного контента, если нужно */
+}
+
+.family-member-sidebar {
+    flex: 1 0 calc(25% - 30px);
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    align-self: flex-start; /* Чтобы sidebar не растягивался на всю высоту */
+}
+
+.family-member-sidebar h2 {
+    color: #444;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 5px;
+    margin: 20px 0 15px 0;
+    font-size: 1.3em;
+}
+
+.family-member-sidebar .family-member-info h2 {
+    margin-top: 0;
+}
+
+.family-member-sidebar .family-member-table {
+    margin-bottom: 0;
+}
+
+.family-member-sidebar .family-member-table th,
+.family-member-sidebar .family-member-table td {
+    padding: 8px 5px;
+    font-size: 0.9em;
+}
+
+.family-member-sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.family-member-sidebar li {
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9em;
+}
+
+.family-member-sidebar li:last-child {
+    border-bottom: none;
+}
+
+.family-member-sidebar a {
+    color: #ff7744;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.family-member-sidebar a:hover {
+    text-decoration: underline;
+}
+
+.family-member-sidebar .spouse-info,
+.family-member-sidebar .sibling-relation-type {
+    font-size: 0.85em;
+    color: #666;
+    margin-left: 5px;
+}
+
+.family-member-sidebar .family-member-avatar {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.family-member-sidebar .family-member-avatar img {
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #f0f0f0;
+}
+.family-member-content-gutenberg a {
+	color: #ff7744;
+}
+.family-member-content-gutenberg a:hover {
+	text-decoration:underline;
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .family-member-layout {
+        flex-direction: column;
+    }
+    
+    .family-member-content-gutenberg,
+    .family-member-sidebar {
+        flex: 0 0 100%;
+    }
+    
+    .family-member-sidebar {
+        align-self: stretch;
+    }
+}
+
+@media (max-width: 768px) {
+    .family-member-header h1 {
+        font-size: 1.8em;
+    }
+    
+    .family-member-dates {
+        font-size: 1em;
+    }
+    
+    .family-member-content {
+        padding: 20px 15px;
+        margin: 10px;
+    }
+    
+    .family-member-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+    
+    .family-member-avatar {
+        display: flex;
+        justify-content: center;
+    }
+    
+    .family-member-table th,
+    .family-member-table td {
+        padding: 8px 5px;
+        font-size: 0.9em;
+    }
+}
+
+@media (max-width: 480px) {
+    .family-member-content {
+        padding: 15px 10px;
+        margin: 5px;
+    }
+    
+    .family-member-header {
+        gap: 15px;
+    }
+    
+    .family-member-avatar img {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .family-member-layout {
+        gap: 20px;
+    }
+    
+    .family-member-sidebar {
+        padding: 15px;
+    }
+    
+    .family-member-sidebar .family-member-avatar img {
+        max-width: 120px;
+    }
+}
+
+/* Стили для каталога фамилий */
+.family-tree-surname-catalog {
+    padding: 20px 0;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.catalog-alphabet {
+    margin-bottom: 40px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.catalog-alphabet h2 {
+    margin-top: 0;
+    color: #444;
+    border-bottom: 2px solid #ff7744;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.alphabet-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.alphabet-letter {
+    margin: 0;
+    padding: 0;
+}
+
+.alphabet-letter a,
+.alphabet-letter span {
+    display: block;
+    padding: 8px 12px;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+.alphabet-letter.active a {
+    background-color: #ff7744;
+    color: white;
+}
+
+.alphabet-letter.active a:hover {
+    background-color: #e06633;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.alphabet-letter.inactive span {
+    color: #aaa;
+    background-color: #f0f0f0;
+    cursor: not-allowed;
+}
+
+.catalog-surnames .surname-section {
+    margin-bottom: 50px;
+    padding: 20px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background-color: #fff;
+}
+
+.catalog-surnames .surname-section h2 {
+    color: #444;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.surname-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Новое правило: отступ между фамилиями */
+.surname-group {
+    margin-bottom: 25px;
+}
+
+/* Новое правило: увеличенный отступ между фамилиями с одной буквы */
+.surname-group.surname-group-with-margin {
+    margin-bottom: 40px;
+}
+
+.surname-title {
+    font-size: 1.2em;
+    color: #333;
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+}
+
+/* Новое правило: уменьшенный размер для количества персон */
+.surname-count {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: normal;
+}
+
+.surname-members {
+    list-style: none;
+    padding-left: 20px;
+    margin: 0;
+}
+
+.member-item {
+    margin-bottom: 8px;
+    padding: 5px 0;
+}
+
+.member-item a {
+    color: #ff7744;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.member-item a:hover {
+    color: #e06633;
+    text-decoration: underline;
+}
+
+.back-to-top {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.back-to-top a:hover {
+    color: #333;
+    text-decoration: underline;
+}
+
+/* Адаптивность для каталога фамилий */
+@media (max-width: 768px) {
+    .alphabet-list {
+        gap: 5px;
+    }
+    
+    .alphabet-letter a,
+    .alphabet-letter span {
+        padding: 6px 10px;
+        font-size: 0.9em;
+        min-width: 30px;
+    }
+    
+    .catalog-surnames .surname-section {
+        padding: 15px;
+    }
+    
+    .surname-members {
+        padding-left: 15px;
+    }
+    
+    .surname-title {
+        font-size: 1.1em;
+    }
+}
+
+@media (max-width: 480px) {
+    .catalog-alphabet,
+    .catalog-surnames .surname-section {
+        padding: 10px;
+    }
+    
+    .alphabet-list {
+        gap: 3px;
+    }
+    
+    .alphabet-letter a,
+    .alphabet-letter span {
+        padding: 5px 8px;
+        font-size: 0.8em;
+        min-width: 25px;
+    }
+    
+    .surname-group {
+        margin-bottom: 20px;
+    }
+    
+    .surname-group.surname-group-with-margin {
+        margin-bottom: 30px;
+    }
+    
+    .surname-title {
+        font-size: 1.05em;
+        gap: 8px;
+    }
+    
+    /* Еще меньший размер для количества персон на мобильных */
+    .surname-count {
+        font-size: 0.8em;
+    }
+    
+    .back-to-top {
+        text-align: center;
+        margin-top: 15px;
+    }
+}
+
