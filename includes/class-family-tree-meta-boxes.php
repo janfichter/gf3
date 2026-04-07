@@ -790,9 +790,9 @@ class Family_Tree_Meta_Boxes {
         if (isset($_POST['family_member_last_name'])) {
             update_post_meta($post_id, '_family_member_last_name', sanitize_text_field(wp_unslash($_POST['family_member_last_name'])));
         }
-        if (isset($_POST['family_member_maiden_name'])) {
-            update_post_meta($post_id, '_family_member_maiden_name', sanitize_text_field(wp_unslash($_POST['family_member_maiden_name'])));
-        }
+        // Девичья фамилия - обновляем всегда, даже если пустая
+        $maiden_name = isset($_POST['family_member_maiden_name']) ? sanitize_text_field(wp_unslash($_POST['family_member_maiden_name'])) : '';
+        update_post_meta($post_id, '_family_member_maiden_name', $maiden_name);
         if (isset($_POST['family_member_gender'])) {
             update_post_meta($post_id, '_family_member_gender', sanitize_text_field(wp_unslash($_POST['family_member_gender'])));
         }
