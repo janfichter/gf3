@@ -105,7 +105,10 @@ array($this, 'render_root_member_meta_box'),
 public function render_root_member_meta_box($post) {
 wp_nonce_field('family_member_root_nonce', 'family_member_root_nonce');
 $is_root = get_post_meta($post->ID, '_family_member_is_root', true);
-$current_root = $this->get_root_member_id();
+// Получаем группу текущей персоны
+$group_id = get_post_meta($post->ID, '_family_member_group_id', true);
+// Получаем корневой элемент для этой группы
+$current_root = $this->get_root_member_id($group_id);
 ?>
 <div class="family-tree-root-metabox">
 <p>
@@ -152,16 +155,18 @@ return;
 if (!current_user_can('edit_post', $post_id)) {
 return;
 }
+// Получаем группу, к которой принадлежит персона
+$group_id = get_post_meta($post_id, '_family_member_group_id', true);
 // Проверяем, установлен ли флаг корневого элемента
 $is_root = isset($_POST['family_member_is_root']) && $_POST['family_member_is_root'] == '1';
 if ($is_root) {
-// Сначала сбрасываем флаг у всех других записей
-$this->clear_root_member();
+// Сначала сбрасываем флаг у всех других записей в этой группе
+$this->clear_root_member($group_id);
 // Устанавливаем флаг для текущей записи
 update_post_meta($post_id, '_family_member_is_root', '1');
 } else {
 // Если это был корневой элемент, снимаем флаг
-$current_root = $this->get_root_member_id();
+$current_root = $this->get_root_member_id($group_id);
 if ($current_root == $post_id) {
 delete_post_meta($post_id, '_family_member_is_root');
 }
@@ -198,38 +203,66 @@ return;
 if ($post->post_type !== 'family_member') {
 return;
 }
+// Получаем группу, к которой принадлежит персона
+$group_id = get_post_meta($post_id, '_family_member_group_id', true);
 $is_root = isset($_POST['family_member_is_root']) && $_POST['family_member_is_root'] == '1';
 if ($is_root) {
-$this->clear_root_member();
+$this->clear_root_member($group_id);
 update_post_meta($post_id, '_family_member_is_root', '1');
 }
 }
 /**
-* Получает ID корневого элемента
+* Получает ID корневого элемента (опционально для указанной группы)
 */
-private function get_root_member_id() {
-$root_members = get_posts(array(
+private function get_root_member_id($group_id = 0) {
+$args = array(
 'post_type' => 'family_member',
 'posts_per_page' => 1,
 'meta_key' => '_family_member_is_root',
 'meta_value' => '1',
 'fields' => 'ids',
 'post_status' => 'any'
-));
+);
+
+// Если указана группа, ищем корень только в этой группе
+if ($group_id) {
+$args['meta_query'] = array(
+array(
+'key' => '_family_member_group_id',
+'value' => $group_id,
+'compare' => '='
+)
+);
+}
+
+$root_members = get_posts($args);
 return !empty($root_members) ? $root_members[0] : 0;
 }
 /**
-* Очищает флаг корневого элемента у всех записей
+* Очищает флаг корневого элемента у всех записей (или у записей указанной группы)
 */
-private function clear_root_member() {
-$root_members = get_posts(array(
+private function clear_root_member($group_id = 0) {
+$args = array(
 'post_type' => 'family_member',
 'posts_per_page' => -1,
 'meta_key' => '_family_member_is_root',
 'meta_value' => '1',
 'fields' => 'ids',
 'post_status' => 'any'
-));
+);
+
+// Если указана группа, очищаем только в этой группе
+if ($group_id) {
+$args['meta_query'] = array(
+array(
+'key' => '_family_member_group_id',
+'value' => $group_id,
+'compare' => '='
+)
+);
+}
+
+$root_members = get_posts($args);
 foreach ($root_members as $member_id) {
 delete_post_meta($member_id, '_family_member_is_root');
 }
@@ -3207,8 +3240,10 @@ $result['images_imported']++;
 }
 // Если нашли корневой элемент, устанавливаем его
 if ($root_post_id) {
-// Сначала сбрасываем флаг у всех записей
-$this->clear_root_member();
+// Получаем группу корневого элемента
+$root_group_id = get_post_meta($root_post_id, '_family_member_group_id', true);
+// Сначала сбрасываем флаг у всех записей в этой группе
+$this->clear_root_member($root_group_id);
 // Устанавливаем флаг для корневого элемента
 update_post_meta($root_post_id, '_family_member_is_root', '1');
 $result['root_member'] = get_the_title($root_post_id);
