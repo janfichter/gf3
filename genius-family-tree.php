@@ -2,7 +2,7 @@
 /**
 * Plugin Name:       Genius Family Tree
 * Description:       Плагин для создания и отображения семейных деревьев
-* Version:           1.3.3
+* Version:           1.3.4
 * Author:            Jan Fichter
 * Text Domain:       genius-family-tree
 * License:           GPLv2 or later
@@ -1497,7 +1497,7 @@ public function enqueue_scripts() {
 // Для страниц персон не загружаем скрипты древа вообще
 if (is_singular('family_member')) {
 // Загружаем только базовые стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.3');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.4');
 return;
 }
 // Не загружаем скрипты в админке
@@ -1509,13 +1509,13 @@ $should_load_scripts = $this->should_load_family_tree_scripts();
 // Загружаем скрипты только если они действительно нужны
 if ($should_load_scripts) {
 // Загружаем стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.3');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.4');
 // Загружаем D3.js
 wp_enqueue_script('d3', FAMILY_TREE_PLUGIN_URL . 'assets/vendor/d3.min.js', array(), '1.0.0', true);
 // Загружаем FamilyChart библиотеку (f3)
 wp_enqueue_script('family-chart', FAMILY_TREE_PLUGIN_URL . 'assets/vendor/family-chart.min.js', array('d3'), '1.0.0', true);
 // Загружаем наш скрипт
-wp_enqueue_script('family-tree-script', FAMILY_TREE_PLUGIN_URL . 'assets/js/family-tree.js', array('family-chart'), '1.3.3', true);
+wp_enqueue_script('family-tree-script', FAMILY_TREE_PLUGIN_URL . 'assets/js/family-tree.js', array('family-chart'), '1.3.4', true);
 // Локализация скрипта с plugin_url
 wp_localize_script('family-tree-script', 'familyTreeAjax', array(
 'ajaxurl' => admin_url('admin-ajax.php'),
@@ -1527,7 +1527,7 @@ wp_localize_script('family-tree-script', 'familyTreeAjax', array(
 ));
 } else {
 // Загружаем только стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.3');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.3.4');
 }
 }
 private function should_load_family_tree_scripts() {
@@ -1554,8 +1554,8 @@ if ($hook === 'family_member_page_family-tree-settings') {
 wp_deregister_script('heartbeat');
 }
 if (($hook == 'post-new.php' || $hook == 'post.php') && ($post_type == 'family_member' || $post_type == 'family_group')) {
-wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.3.3');
-wp_enqueue_script('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.3.3', true);
+wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.3.4');
+wp_enqueue_script('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.3.4', true);
 // Передача данных в скрипт
 wp_localize_script('family-tree-admin', 'familyTreeAdmin', array(
 'ajaxurl' => admin_url('admin-ajax.php'),
@@ -1567,8 +1567,8 @@ wp_localize_script('family-tree-admin', 'familyTreeAdmin', array(
 }
 // Загружаем стили и скрипты для страницы настроек
 if ($hook == 'family_member_page_family-tree-settings') {
-wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.3.3');
-wp_enqueue_script('family-tree-settings', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.3.3', true);
+wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.3.4');
+wp_enqueue_script('family-tree-settings', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.3.4', true);
 wp_localize_script('family-tree-settings', 'familyTreeAdmin', array(
 'ajaxurl' => admin_url('admin-ajax.php'),
 'nonce' => wp_create_nonce('family_tree_license_nonce')
@@ -2443,7 +2443,7 @@ $gedcom_content .= "1 SOUR Genius Family Tree
 ";
 $gedcom_content .= "2 NAME Genius Family Tree
 ";
-$gedcom_content .= "2 VERS 1.3.3
+$gedcom_content .= "2 VERS 1.3.4
 ";
 $gedcom_content .= "1 DEST GEDCOM
 ";
@@ -3444,7 +3444,7 @@ $response = wp_remote_post($api_url, array(
 'body' => array(
 'license_key' => $license_key,
 'site_url' => home_url(),
-'plugin_version' => '1.3.3',
+'plugin_version' => '1.3.4',
 'wp_version' => get_bloginfo('version'),
 'php_version' => phpversion()
 )
