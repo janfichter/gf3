@@ -201,7 +201,7 @@
                 view.update(props || {});
                 // Добавляем иконки после каждого обновления
                 setTimeout(() => {
-                    addLinkIconsToCards(data.nodes);
+                    addLinkIconsToCards(data.nodes, container);
                     // Переназначаем обработчики после каждого обновления
                     attachClickHandlers(container, store);
                 }, 50);
@@ -262,7 +262,7 @@
     }
     
     // Функция для добавления иконок ссылок к карточкам
-    function addLinkIconsToCards(nodesData) {
+    function addLinkIconsToCards(nodesData, container) {
         try {
             // Проходим по всем узлам данных
             nodesData.forEach(node => {
@@ -270,8 +270,8 @@
                 const personUrl = node.permalink;
                 
                 if (personId && personUrl) {
-                    // Находим соответствующую карточку в DOM
-                    const cardElement = document.querySelector(`.card[data-id="${personId}"]`);
+                    // Находим соответствующую карточку в конкретном контейнере
+                    const cardElement = container.querySelector(`.card[data-id="${personId}"]`);
                     
                     if (cardElement) {
                         // Проверяем, не добавлена ли уже иконка
