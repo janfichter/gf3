@@ -3192,8 +3192,22 @@ $death_day = $parsed['day'];
 // Формируем составные даты в формате ГГГГ-ММ-ДД
 $birth_date_composite = $this->build_composite_date($birth_year, $birth_month, $birth_day);
 $death_date_composite = $this->build_composite_date($death_year, $death_month, $death_day);
+
+// Формируем post_title без девичьей фамилии (только имя + отчество + основная фамилия)
+$post_title_parts = array();
+if (!empty($individual['first_name'])) {
+    $post_title_parts[] = $individual['first_name'];
+}
+if (!empty($individual['middle_name'])) {
+    $post_title_parts[] = $individual['middle_name'];
+}
+if (!empty($individual['last_name'])) {
+    $post_title_parts[] = $individual['last_name'];
+}
+$post_title = !empty($post_title_parts) ? implode(' ', $post_title_parts) : esc_html__('Без имени', 'genius-family-tree');
+
 $post_data = array(
-'post_title' => $individual['name'] ?: esc_html__('Без имени', 'genius-family-tree'),
+'post_title' => $post_title,
 'post_type' => 'family_member',
 'post_status' => 'publish',
 'meta_input' => array(
