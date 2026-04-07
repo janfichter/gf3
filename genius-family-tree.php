@@ -2261,17 +2261,60 @@ default: echo esc_html__('Функции Pro-версии', 'genius-family-tree'
 </ul>
 <?php if ($has_gedcom): ?>
 <div class="gedcom-buttons-section" style="margin-top: 24px; max-width: 400px;">
+<!-- Выбор семейной группы -->
+<div class="gedcom-group-selector" style="margin-bottom: 16px;">
+<label for="gedcom_group_id" style="display: block; margin-bottom: 8px; font-weight: 600;">
+<?php echo esc_html__('Семейная группа:', 'genius-family-tree'); ?>
+</label>
+<select name="gedcom_group_id" id="gedcom_group_id" style="width: 100%; padding: 6px 10px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; box-sizing: border-box;">
+<option value="0"><?php echo esc_html__('Все группы', 'genius-family-tree'); ?></option>
+<?php
+$groups = get_posts(array(
+'post_type' => 'family_group',
+'posts_per_page' => -1,
+'post_status' => 'any',
+'orderby' => 'title',
+'order' => 'ASC'
+));
+foreach ($groups as $group) {
+echo '<option value="' . esc_attr($group->ID) . '">' . esc_html($group->post_title) . '</option>';
+}
+?>
+</select>
+<p class="description" style="margin-top: 8px;"><?php echo esc_html__('Выберите группу для экспорта/импорта. Если не выбрано, операция будет выполнена для всех групп.', 'genius-family-tree'); ?></p>
+</div>
 <!-- Экспорт -->
 <div class="gedcom-button-wrapper" style="margin-bottom: 12px;">
-<a href="<?php echo esc_url(admin_url('admin-ajax.php?action=family_tree_export_gedcom&_wpnonce=' . wp_create_nonce('family_tree_gedcom'))); ?>" class="button button-primary button-hero" style="width: 100%; text-align: center;">
+<a href="#" class="button button-primary button-hero" id="gedcom-export-btn" style="width: 100%; text-align: center;" onclick="return false;">
 <?php echo esc_html__('Экспорт в GEDCOM', 'genius-family-tree'); ?>
 </a>
+<script>
+jQuery(document).ready(function($) {
+$('#gedcom-export-btn').on('click', function() {
+var groupId = $('#gedcom_group_id').val();
+var nonce = '<?php echo wp_create_nonce('family_tree_gedcom'); ?>';
+var url = '<?php echo admin_url('admin-ajax.php?action=family_tree_export_gedcom&_wpnonce='); ?>' + nonce;
+if (groupId && groupId != '0') {
+url += '&group_id=' + groupId;
+}
+window.location.href = url;
+});
+});
+</script>
 </div>
 <!-- Импорт -->
 <div class="gedcom-button-wrapper">
 <form method="post" action="<?php echo esc_url(admin_url('admin-ajax.php')); ?>" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 8px;">
 <input type="hidden" name="action" value="family_tree_import_gedcom" />
 <?php wp_nonce_field('family_tree_import_gedcom', 'family_tree_import_gedcom_nonce'); ?>
+<input type="hidden" name="gedcom_group_id" id="import_gedcom_group_id" value="0" />
+<script>
+jQuery(document).ready(function($) {
+$('#gedcom_group_id').on('change', function() {
+$('#import_gedcom_group_id').val($(this).val());
+});
+});
+</script>
 <input type="file" name="gedcom_file" accept=".ged,.GED" required style="width: 100%; padding: 6px 10px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; box-sizing: border-box;" />
 <input type="submit" class="button button-secondary button-hero" value="<?php echo esc_attr__('Импорт из GEDCOM', 'genius-family-tree'); ?>" style="width: 100%; text-align: center;" />
 <p class="description"><?php echo esc_html__('Поддерживается импорт фотографий и корневого элемента из файлов GEDCOM', 'genius-family-tree'); ?></p>
@@ -2416,6 +2459,8 @@ wp_die(esc_html__('Ошибка безопасности', 'genius-family-tree')
 if (!get_option('family_tree_has_gedcom', false) || !get_option('family_tree_is_pro', false)) {
 wp_die(esc_html__('Экспорт доступен только в Premium-версии', 'genius-family-tree'));
 }
+// Получаем ID группы, если выбран
+$group_id = isset($_GET['group_id']) ? intval($_GET['group_id']) : 0;
 // Получаем все записи типа family_member
 $args = array(
 'post_type' => 'family_member',
@@ -2423,6 +2468,16 @@ $args = array(
 'posts_per_page' => -1,
 'nopaging' => true
 );
+// Если выбрана группа, фильтруем по ней
+if ($group_id) {
+$args['meta_query'] = array(
+array(
+'key' => '_family_member_group_id',
+'value' => $group_id,
+'compare' => '='
+)
+);
+}
 $query = new WP_Query($args);
 if (!$query->have_posts()) {
 wp_die(esc_html__('Нет данных для экспорта', 'genius-family-tree'));
@@ -2793,6 +2848,8 @@ wp_die(esc_html__('Ошибка безопасности', 'genius-family-tree')
 if (!get_option('family_tree_has_gedcom', false) || !get_option('family_tree_is_pro', false)) {
 wp_die(esc_html__('Импорт доступен только в Premium-версии', 'genius-family-tree'));
 }
+// Получаем ID группы, если выбрана
+$group_id = isset($_POST['gedcom_group_id']) ? intval($_POST['gedcom_group_id']) : 0;
 // Проверка наличия файла
 if (!isset($_FILES['gedcom_file']) || empty($_FILES['gedcom_file']['tmp_name'])) {
 wp_die(esc_html__('Файл не был загружен', 'genius-family-tree'));
@@ -3158,6 +3215,8 @@ return array(
 private function import_gedcom_data($parsed_data) {
 $individuals = $parsed_data['individuals'];
 $root_member_id = $parsed_data['root_member'];
+// Получаем ID группы, если выбрана (передаётся из ajax_import_gedcom)
+$group_id = isset($_POST['gedcom_group_id']) ? intval($_POST['gedcom_group_id']) : 0;
 $result = array(
 'persons_imported' => 0,
 'images_imported' => 0,
@@ -3227,6 +3286,10 @@ $post_data = array(
 '_family_member_maiden_name' => sanitize_text_field($individual['maiden_name'])
 )
 );
+// Если указана группа, добавляем её ID в мета-данные
+if ($group_id) {
+$post_data['meta_input']['_family_member_group_id'] = $group_id;
+}
 $post_id = wp_insert_post($post_data, true);
 if (is_wp_error($post_id)) {
 $result['errors'][] = sprintf(__('Ошибка создания персоны "%s": %s', 'genius-family-tree'), esc_html($individual['name']), $post_id->get_error_message());
