@@ -153,12 +153,22 @@
                         return d.data["middle name"] || "";
                     },
                     (d) => {
-                        // Фамилия - отображаем как есть
-                        return d.data["last name"] || "";
+                        // Фамилия с девичьей фамилией в скобках (если есть)
+                        const lastName = d.data["last name"] || "";
+                        const maidenName = d.data["maiden name"] || "";
+                        
+                        if (maidenName) {
+                            if (lastName) {
+                                return `${lastName} (${maidenName})`;
+                            } else {
+                                return maidenName;
+                            }
+                        }
+                        return lastName;
                     },
                     (d) => {
-                        // Девичья фамилия в скобках
-                        return d.data["maiden name"] ? `(${d.data["maiden name"]})` : "";
+                        // Пустой элемент, чтобы не создавать лишнюю строку
+                        return "";
                     },
                     (d) => {
                         const birthday = d.data["birthday"] || "";
@@ -425,8 +435,8 @@
         }
     });
     
-    // Функция проверки страницы (уже определена выше, но оставляем для ясности)
-    // function isFamilyTreePage() {
-    //     return document.getElementById('FamilyChart') !== null;
-    // }
+    // Функция проверки страницы
+    function isFamilyTreePage() {
+        return document.getElementById('FamilyChart') !== null;
+    }
 })();
