@@ -3,12 +3,19 @@
 === Genius Family Tree ===
 
 Contributors: Jan Fichter
+
 Developer URL: https://xn----8sbbdpda1c7cwf.xn--p1ai/product-category/genius-family-tree/
+
 Tags: family, tree, genealogy, gedcom
+
 Requires at least: 5.0
+
 Tested up to: 7.0
+
 Stable tag: 1.4.1
+
 License: GPLv2 or later
+
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Plugin for creating and displaying interactive family trees on a WordPress site with GEDCOM support, root elements, and advanced navigation.
