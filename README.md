@@ -1,6 +1,7 @@
 # gf3
 
 === Genius Family Tree ===
+
 Contributors: Jan Fichter
 Developer URL: https://xn----8sbbdpda1c7cwf.xn--p1ai/product-category/genius-family-tree/
 Tags: family, tree, genealogy, gedcom
