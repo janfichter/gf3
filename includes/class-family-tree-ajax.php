@@ -65,7 +65,7 @@ class Family_Tree_Ajax {
         if (empty($nonce) || !wp_verify_nonce($nonce, 'family_tree_admin_nonce')) {
             wp_send_json_error('Security check failed');
         }
-        $is_pro = get_option('family_tree_is_pro', false);
+        $is_pro = Family_Tree_Plugin::get_instance()->is_pro();
         $member_count = wp_count_posts('family_member')->publish;
         if (!$is_pro && $member_count >= 50) wp_send_json_error('limit_reached');
         wp_send_json_success();
@@ -146,7 +146,7 @@ class Family_Tree_Ajax {
             // Если не умер и года нет — остаётся пустой строкой
 
             $thumbnail_id = get_post_thumbnail_id($person_id);
-            $image_url = $thumbnail_id ? wp_get_attachment_image_url($thumbnail_id, 'medium') : FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-' . ($gender === 'female' ? 'woman' : 'man') . '.svg';
+            $image_url = $thumbnail_id ? wp_get_attachment_image_url($thumbnail_id, 'medium') : family_tree_get_placeholder($gender);
 
             if (!isset($node_ids[$person_id])) {
                 $node_ids[$person_id] = true;
