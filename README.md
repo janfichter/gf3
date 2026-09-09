@@ -1,149 +1,62 @@
-# gf3
-
 === Genius Family Tree ===
-
 Contributors: Jan Fichter
-
 Developer URL: https://xn----8sbbdpda1c7cwf.xn--p1ai/product-category/genius-family-tree/
-
 Tags: family, tree, genealogy, gedcom
-
 Requires at least: 5.0
-
 Tested up to: 7.0
-
-Stable tag: 1.4.1
-
+Stable tag: 1.4.3
 License: GPLv2 or later
-
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Plugin for creating and displaying interactive family trees on a WordPress site with GEDCOM support, root elements, and advanced navigation.
 
 == Description ==
 
-Genius Family Tree is a powerful tool for creating and visualizing family trees. Version 1.4.1 includes many improvements and new features.
+Genius Family Tree is a powerful tool for creating and visualizing family trees. Version 1.4.3 includes many improvements and new features.
 
 🚀 **Key features:**
 
 * **Interactive tree** — create beautiful, scalable family trees using the D3.js library.
+* **Flexible card design** — configure colors, backgrounds, and fonts for cards, card names, and dates; set custom photo placeholders for men and women.
 * **Multiple family groups** — create multiple independent trees by assigning each family member to their own group (shortcode `[family_tree group="ID"]`).
 * **Tree root element** — you can specify which family member the main tree should be built from (star icon in the members list).
 * **Navigate from a specific person** — each person's page has a "Show in tree" button that builds the tree starting from that person (URL parameters `person_id` or `center_on`).
 * **GEDCOM import/export** — full support for GEDCOM 5.5.1 format with photos and root element preservation.
 * **Surname catalog** — convenient surname navigation with an alphabetical index (shortcode `[family_surname_catalog]`).
-* **Enhanced admin** — columns with portraits, lifespan dates, and root element indicators.
+* **Enhanced admin** — modern dashboard, columns with portraits, lifespan dates, and root element indicators.
 
-🎯 **New features in version 1.4.1:**
+🎯 **New features in version 1.4.3:**
 
-* **Multiple family groups support** — you can now create multiple independent trees by assigning each family member to their own group
-* **New admin dashboard** — fully redesigned dashboard with section tiles, status block, recent actions, quick search, and setup wizard
-* **Improved settings page** — modern card-based interface with clear heading styling and Pro feature display
-* **Smart root element sidebar** — root checkbox appears only after selecting a group, with dynamic display of the current root in the selected group
-* **Improved notifications** — list of ungrouped members with direct edit links
-* **Plugin version** — version display at the top of the dashboard and settings page
-* **Counting fix** — correct counting of groups and members, excluding revisions and system posts
-* **Ungrouped fix** — records linked to deleted groups are now properly detected
-* **Improved styles** — unified modern card design, rounded corners, shadows, and responsive layout
-* **Improved GEDCOM import/export** — family group selection for operations
+* **Tree toolbar** — a toolbar with icons in the lower-right corner of the interactive tree
+* **Share** — share the tree page via VK, Telegram, Odnoklassniki, WhatsApp, Twitter / X, or copy the link
+* **Zoom controls** — plus/minus buttons to increase and decrease the tree scale
+* **Expand / collapse** — fit the tree to the full content width or collapse back to the root person
+* **Save as image** — download the selected tree fragment as a PNG with the plugin logo and site URL watermark
+* **Disable mouse-wheel zoom** — option to zoom only via the toolbar buttons
+* **Toolbar customization** — choose its position and colors of the buttons and icons (including hover)
+* **Redesigned admin dashboard** — plugin logo, description, quick links, and expanded tips of the day
 
 == Changelog ==
 
-= 1.4.1 =
-* **NEW**: Multiple family groups support — each tree can now be in its own group
-* **NEW**: Fully redesigned dashboard in the "Family Tree" section with section tiles, status block, and setup wizard
-* **NEW**: Quick person search on the dashboard
-* **NEW**: Dynamic root element sidebar showing the current root of the selected group
-* **NEW**: Display of ungrouped members list in notifications
-* **IMPROVED**: Correct counting of groups and members (revisions and system posts excluded)
-* **IMPROVED**: Accounting for deleted groups when detecting ungrouped members
-* **IMPROVED**: Modern settings page interface with card layout
-* **IMPROVED**: Unified style for all admin and frontend elements
-* **FIXED**: Settings page headings are now displayed correctly
-* **FIXED**: Plugin version is now displayed in the admin panel
+= 1.4.3 =
+* **NEW**: Toolbar in the lower-right corner of the interactive tree
+* **NEW**: Share button with a dropdown (VK, Telegram, Odnoklassniki, WhatsApp, Twitter / X, copy link)
+* **NEW**: Zoom in/out plus and minus buttons
+* **NEW**: Expand to full content / collapse to the root person toggle button
+* **NEW**: Camera button — save the selected tree fragment as a PNG image with the plugin logo and site URL at the top
+* **NEW**: Option to disable mouse-wheel zoom on the tree
+* **NEW**: Toolbar settings section — configure toolbar position (four corners), button background color, button background on hover, icon color, and icon color on hover
+* **NEW**: Redesigned admin dashboard — plugin logo at the top, plugin description, quick action links, and an expanded "Tip of the day" covering tree, person, catalog, and toolbar customization
 
-= 1.3.4 =
-* **NEW**: Ability to set a global tree root element (star icon in the members list)
-* **NEW**: Meta box for selecting the root element when editing a person
-* **NEW**: Support for `person_id` and `center_on` URL parameters for building a tree from a specific person
-* **NEW**: "Tree Root" column in the admin panel with visual indicator
-* **IMPROVED**: GEDCOM import automatically restores the root element from the `_ROOT Y` tag
-* **IMPROVED**: GEDCOM export preserves root element information
-* **IMPROVED**: Tree building priorities: URL > global root > data attribute
-* **FIXED**: Conflict between data-root-id and global root when building the tree
-* **FIXED**: Errors when passing root_member_id to JavaScript
-
-= 1.3.3 =
-* **NEW**: Meta box for selecting the tree root element
-* **NEW**: "Tree Root" column in the members list
-* **IMPROVED**: GEDCOM export now includes root element information
-* **IMPROVED**: GEDCOM import automatically restores the root element
-
-= 1.3.2 =
-* **IMPROVED**: Improved photo handling during GEDCOM import
-* **FIXED**: Minor bugs in the GEDCOM parser
-
-= 1.3.1 =
-* **IMPROVED**: Support for more image formats during GEDCOM import
-* **ADDED**: Error logging during image import
-
-= 1.3.0 =
-* **NEW**: "Portrait" and "Lifespan" columns in the admin panel
-* **IMPROVED**: Visual display of members in the list
-
-= 1.2.3 =
-* **NEW**: Ability to show a selected person in the family tree via a button on the person's individual page
-* **IMPROVED**: Support for the `center_on` URL parameter
-
-= 1.2.2 =
-* Improved: Shortcode now supports [family_tree root="10" center_on="15"]
-* Improved: Bidirectional sync between parents and children
-* Improved: Interactive tree performance
-
-= 1.2.1 =
-* Fixed: Heartbeat API disabled on the plugin settings page
-* Improved: Increased stability
-
-= 1.2.0 =
-* Added: GEDCOM export
-* Added: GEDCOM import
-* Added: Surname catalog with alphabetical navigation
-
-= 1.1.0 =
-* Added: Licensing support
-* Added: Limit of 50 members in the free version
-
-= 1.0.0 =
-* Initial release
-
-== Description ==
-
-Genius Family Tree is a powerful tool for creating and visualizing family trees. Version 1.4.1 includes many improvements and new features.
-
-🚀 **Key features:**
-
-* **Interactive tree** — create beautiful, scalable family trees using the D3.js library.
-* **Multiple family groups** — create multiple independent trees by assigning each family member to their own group (shortcode `[family_tree group="ID"]`).
-* **Tree root element** — you can specify which family member the main tree should be built from (star icon in the members list).
-* **Navigate from a specific person** — each person's page has a "Show in tree" button that builds the tree starting from that person (URL parameters `person_id` or `center_on`).
-* **GEDCOM import/export** — full support for GEDCOM 5.5.1 format with photos and root element preservation.
-* **Surname catalog** — convenient surname navigation with an alphabetical index (shortcode `[family_surname_catalog]`).
-* **Enhanced admin** — columns with portraits, lifespan dates, and root element indicators.
-
-🎯 **New features in version 1.4.1:**
-
-* **Multiple family groups support** — you can now create multiple independent trees by assigning each family member to their own group
-* **New admin dashboard** — fully redesigned dashboard with section tiles, status block, recent actions, quick search, and setup wizard
-* **Improved settings page** — modern card-based interface with clear heading styling and Pro feature display
-* **Smart root element sidebar** — root checkbox appears only after selecting a group, with dynamic display of the current root in the selected group
-* **Improved notifications** — list of ungrouped members with direct edit links
-* **Plugin version** — version display at the top of the dashboard and settings page
-* **Counting fix** — correct counting of groups and members, excluding revisions and system posts
-* **Ungrouped fix** — records linked to deleted groups are now properly detected
-* **Improved styles** — unified modern card design, rounded corners, shadows, and responsive layout
-* **Improved GEDCOM import/export** — family group selection for operations
-
-== Changelog ==
+= 1.4.2 =
+* **NEW**: Restructured "Catalog" settings tab — settings grouped into container, alphabet, and surname sections; letter color settings moved to the alphabet section
+* **NEW**: New option for the inactive alphabet letters background
+* **NEW**: Restructured "Tree Display" settings tab — settings grouped into container and card sections
+* **NEW**: Font settings for card names and dates in the interactive tree (font family, size, and weight)
+* **NEW**: Custom placeholder images for male and female card avatars (JPG, PNG, SVG; square; up to 300×300 px) with a media uploader
+* **NEW**: Default font sizes for all settings tabs (person header, sidebar, and tree cards) are now applied automatically
+* **IMPROVED**: The person page icon in tree cards is anchored to the top-right corner and no longer moves when the card width is changed
+* **IMPROVED**: The portrait in tree cards is now vertically centered within the card
 
 = 1.4.1 =
 * **NEW**: Multiple family groups support — each tree can now be in its own group
