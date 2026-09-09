@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /**
  * Шаблон для отображения отдельной персоны
  */
-get_header(); ?>
+get_header('inter'); ?>
 <script>
 // Заглушка для предотвращения ошибок других скриптов
 if (typeof window.f3 === 'undefined') {
@@ -275,7 +275,7 @@ if (typeof window.f3 === 'undefined') {
 					<?php if (has_post_thumbnail()) : ?>
 						<?php the_post_thumbnail('medium'); ?>
 					<?php else : ?>
-						<img src="<?php echo esc_url(FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-' . ($ft_gender === 'female' ? 'woman' : 'man') . '.svg'); ?>" 
+						<img src="<?php echo esc_url(family_tree_get_placeholder($ft_gender)); ?>" 
 							 alt="<?php echo esc_attr($ft_full_name_with_maiden); ?>" width="150" height="150" />
 					<?php endif; ?>
 				</div>
