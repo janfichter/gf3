@@ -2,7 +2,7 @@
 /**
 * Plugin Name:       Genius Family Tree
 * Description:       Плагин для создания и отображения семейных деревьев
-* Version:           1.4.1
+* Version:           1.4.3
 * Author:            Jan Fichter
 * Text Domain:       genius-family-tree
 * License:           GPLv2 or later
@@ -32,6 +32,25 @@ if (!function_exists('family_tree_sanitize_str')) {
         return sanitize_text_field(wp_unslash((string) $value));
     }
 }
+if (!function_exists('family_tree_get_placeholder')) {
+    function family_tree_get_placeholder($gender) {
+        $is_female = ($gender === 'female');
+        $option = $is_female ? get_option('family_tree_female_placeholder', '') : get_option('family_tree_male_placeholder', '');
+        if (!empty($option)) {
+            return $option;
+        }
+        return FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-' . ($is_female ? 'woman' : 'man') . '.svg';
+    }
+}
+if (!function_exists('family_tree_font_size_value')) {
+    function family_tree_font_size_value($option_name, $default) {
+        $value = (int) get_option($option_name, 0);
+        if ($value <= 0) {
+            return $default;
+        }
+        return $value;
+    }
+}
 // Подключение необходимых файлов
 require_once FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-post-type.php';
 require_once FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-meta-boxes.php';
@@ -49,6 +68,8 @@ return self::$instance;
 private function __construct() {
 add_action('init', array($this, 'init'));
 add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+add_action('wp_head', array($this, 'output_tree_custom_styles'));
+add_action('wp_head', array($this, 'output_person_styles'));
 add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
 add_action('after_setup_theme', array($this, 'add_thumbnail_support'));
 add_action('template_include', array($this, 'load_family_member_template'));
@@ -66,11 +87,15 @@ add_action('save_post_family_member', array($this, 'check_member_limit_on_save')
 add_action('admin_menu', array($this, 'init_admin'));
 // Регистрация настроек
 add_action('admin_init', array($this, 'register_settings'));
+// Ленивая перевалидация при входе в админку (не зависит от WP-Cron)
+add_action('admin_init', array($this, 'refresh_license_if_stale'));
 // AJAX обработчики для лицензий
 add_action('wp_ajax_family_tree_activate_license', array($this, 'ajax_activate_license'));
 add_action('wp_ajax_family_tree_deactivate_license', array($this, 'ajax_deactivate_license'));
 add_action('wp_ajax_family_tree_export_gedcom', array($this, 'ajax_export_gedcom'));
 add_action('wp_ajax_family_tree_import_gedcom', array($this, 'ajax_import_gedcom'));
+// Фоновая перевалидация лицензии (ежедневный heartbeat)
+add_action('family_tree_license_heartbeat', array($this, 'license_heartbeat'));
 // ========== ДОБАВЛЕНИЕ НОВЫХ СТОЛБЦОВ В АДМИНКЕ ==========
 $this->add_custom_admin_columns();
 // ========== ИСПРАВЛЕНИЕ ПРОБЛЕМЫ С КОЛИЧЕСТВОМ ЗАПИСЕЙ В АДМИНКЕ ==========
@@ -273,7 +298,7 @@ $this->show_silhouette($gender);
 * Показывает силуэт в зависимости от пола
 */
 private function show_silhouette($gender) {
-$silhouette_url = FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-' . ($gender === 'female' ? 'woman' : 'man') . '.svg';
+$silhouette_url = family_tree_get_placeholder($gender);
 echo '<img src="' . esc_url($silhouette_url) . '" width="50" height="50" style="object-fit: cover; border-radius: 4px; opacity: 0.6;" alt="' . esc_attr__('Силуэт', 'genius-family-tree') . '" />';
 }
 /**
@@ -1133,8 +1158,8 @@ array($this, 'migrate_members_page')
     public function main_page() {
         global $wpdb;
         $plugin_data = get_file_data(FAMILY_TREE_PLUGIN_DIR . 'genius-family-tree.php', array('Version' => 'Version'));
-        $plugin_version = !empty($plugin_data['Version']) ? $plugin_data['Version'] : '1.4.1';
-        $is_pro = get_option('family_tree_is_pro', false);
+        $plugin_version = !empty($plugin_data['Version']) ? $plugin_data['Version'] : '1.4.3';
+        $is_pro = $this->is_pro();
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $total_members = (int) $wpdb->get_var($wpdb->prepare("
@@ -1185,17 +1210,37 @@ array($this, 'migrate_members_page')
             'fields' => 'all'
         ));
 
-        $tips = array(
+            $tips = array(
             __('Корневой элемент определяет, с какой персоны начинается отрисовка древа. Устанавливайте его в самой старшей персоне группы.', 'genius-family-tree'),
             __('Группы позволяют создавать отдельные деревья. Одна группа — одно древо. Добавляйте персоналий в нужную группу через метабокс.', 'genius-family-tree'),
             __('Для вывода древа на сайте используйте шорткод [family_tree group="ID"] — ID группы можно скопировать из списка групп.', 'genius-family-tree'),
+            __('Во вкладке «Отображение древа» настройте ширину, высоту и скругление контейнера, цвет фона и фоновое изображение — так древо лучше впишется в дизайн сайта.', 'genius-family-tree'),
+            __('Цвета карточек древа раздельно настраиваются для мужчин и женщин. Также можно задать единый цвет всех карточек, цвет и шрифт имени и дат.', 'genius-family-tree'),
+            __('Используйте тулбар древа (в углу карты): кнопки «+» и «−» приближают и отдаляют, а кнопка с рамкой разворачивает древо на весь экран или возвращает к корневой персоне.', 'genius-family-tree'),
+            __('Кнопка фотоаппарата в тулбаре сохраняет текущий вид древа как PNG-изображение с логотипом и адресом сайта вверху — удобно делиться деревом в соцсетях.', 'genius-family-tree'),
+            __('Кнопка «Поделиться» в тулбаре позволяет отправить ссылку на древо во ВКонтакте, Telegram, Одноклассники, WhatsApp или Twitter/X.', 'genius-family-tree'),
+            __('Во вкладке «Настройки тулбара» можно перенести панель кнопок в любой угол древа, а также изменить цвет кнопок и иконок (включая цвет при наведении).', 'genius-family-tree'),
+            __('Если колесо мыши мешает — включите опцию «Запретить зум колесиком мыши» в настройках контейнера. Приближение останется доступным через кнопки тулбара.', 'genius-family-tree'),
+            __('Во вкладке «Оформление персоналий» настройте фон, шапку карточки, кнопку «Показать в древе», цвет ссылок и шрифты — страница персоны станет единой с дизайном сайта.', 'genius-family-tree'),
+            __('Алфавитный каталог фамилий настраивается во вкладке «Оформление каталога»: цвета и стиль букв алфавита, заголовков и списка фамилий.', 'genius-family-tree'),
         );
         $tip_of_the_day = $tips[gmdate('z') % count($tips)];
         ?>
         <div class="wrap ft-dashboard">
             <div class="ft-version-banner">
                 <div class="ft-version-info">
-                    <h1><?php echo esc_html__('Семейное древо', 'genius-family-tree'); ?></h1>
+                    <?php
+                    $ft_logo_svg = '';
+                    if (file_exists(FAMILY_TREE_PLUGIN_DIR . 'assets/images/logo.svg')) {
+                        $ft_logo_raw = file_get_contents(FAMILY_TREE_PLUGIN_DIR . 'assets/images/logo.svg');
+                        if (false !== $ft_logo_raw) {
+                            $ft_logo_svg = str_replace('<svg ', '<svg class="ft-dashboard-logo" ', $ft_logo_raw);
+                        }
+                    }
+                    if (!empty($ft_logo_svg)) {
+                        echo $ft_logo_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- собственный логотип-файл плагина
+                    }
+                    ?>
                     <span class="ft-version-badge">v<?php echo esc_html($plugin_version); ?></span>
                 </div>
                 <div class="ft-version-actions">
@@ -1203,6 +1248,17 @@ array($this, 'migrate_members_page')
                     <?php if (!$is_pro): ?>
                     <a href="https://xn----8sbbdpda1c7cwf.xn--p1ai/product-category/genius-family-tree/" target="_blank" class="button button-primary"><?php echo esc_html__('Улучшить до Pro', 'genius-family-tree'); ?></a>
                     <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="ft-plugin-about">
+                <div class="ft-plugin-copy">
+                    <p class="ft-plugin-description"><?php echo esc_html__('Genius Family Tree — плагин для создания и отображения интерактивных семейных древ на вашем сайте. Добавляйте персоналий, группируйте их в отдельные родословные, настраивайте внешний вид древа, страниц персон и алфавитного каталога, и выводите всё на сайт с помощью шорткодов.', 'genius-family-tree'); ?></p>
+                </div>
+                <div class="ft-plugin-links">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=family-tree-settings')); ?>"><?php echo esc_html__('Настройки отображения', 'genius-family-tree'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('post-new.php?post_type=family_group')); ?>"><?php echo esc_html__('Новое древо', 'genius-family-tree'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('post-new.php?post_type=family_member')); ?>"><?php echo esc_html__('Новая персона', 'genius-family-tree'); ?></a>
                 </div>
             </div>
 
@@ -1334,7 +1390,10 @@ array($this, 'migrate_members_page')
                     </div>
 
                     <div class="ft-card ft-tips-card">
-                        <h3><?php echo esc_html__('Подсказка дня', 'genius-family-tree'); ?></h3>
+                        <div class="ft-tips-header">
+                            <span class="ft-tips-icon dashicons dashicons-lightbulb"></span>
+                            <h3><?php echo esc_html__('Подсказка дня', 'genius-family-tree'); ?></h3>
+                        </div>
                         <p><?php echo esc_html($tip_of_the_day); ?></p>
                     </div>
                 </div>
@@ -1379,12 +1438,21 @@ array($this, 'migrate_members_page')
         <style>
         .ft-notice { margin: 16px 0; }
         .ft-notice-button { margin-left: 10px; }
+        body.toplevel_page_family-tree-main h1.wp-heading-inline,
+        body.toplevel_page_family-tree-main .wp-heading-inline { display: none; }
         .ft-tips-card { margin-top: 20px; }
         .ft-dashboard { max-width: 1200px; }
-        .ft-version-banner { display: flex; justify-content: space-between; align-items: center; margin: 20px 0; padding: 16px 20px; background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; }
-        .ft-version-info { display: flex; align-items: center; gap: 12px; }
-        .ft-version-badge { background: #f6f7f7; border: 1px solid #dcdcde; padding: 4px 10px; border-radius: 4px; font-size: 12px; color: #50575e; }
+        .ft-version-banner { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 12px; padding: 16px 20px; background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; }
+        .ft-version-info { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .ft-dashboard-logo { height: 44px; width: auto; display: block; }
+        .ft-version-badge { background: #f6f7f7; border: 1px solid #dcdcde; padding: 4px 10px; border-radius: 4px; font-size: 12px; color: #50575e; white-space: nowrap; }
         .ft-version-actions { display: flex; gap: 8px; }
+        .ft-plugin-about { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin: 0 0 4px; padding: 0 4px; }
+        .ft-plugin-copy { flex: 1 1 380px; }
+        .ft-plugin-description { margin: 0; color: #50575e; line-height: 1.6; font-size: 14px; max-width: 720px; }
+        .ft-plugin-links { display: flex; gap: 12px; flex-wrap: wrap; }
+        .ft-plugin-links a { font-size: 13px; font-weight: 600; color: #2271b1; text-decoration: none; }
+        .ft-plugin-links a:hover { color: #135e96; text-decoration: underline; }
         .ft-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
         .ft-tile { display: flex; align-items: center; gap: 14px; padding: 18px 16px; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; text-decoration: none; transition: box-shadow 0.2s ease; }
         .ft-tile:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: #2271b1; }
@@ -1414,7 +1482,10 @@ array($this, 'migrate_members_page')
         .ft-recent-list .row-actions { margin-top: 2px; }
         .ft-quick-search-form { display: flex; gap: 8px; }
         .ft-tips-card { background: #fff; border-left: 4px solid #dba617; }
-        .ft-tips-card p { margin: 0; color: #1d2327; line-height: 1.5; }
+        .ft-tips-header { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+        .ft-tips-header h3 { margin: 0; }
+        .ft-tips-icon { color: #dba617; font-size: 24px; width: 24px; height: 24px; }
+        .ft-tips-card p { margin: 0; color: #1d2327; line-height: 1.6; }
         .ft-wizard-card { margin-top: 20px; background: #fff; border: 1px solid #c3c4c7; padding: 24px; border-radius: 4px; }
         .ft-wizard-card h3 { margin: 0 0 18px; font-size: 14px; text-transform: uppercase; color: #50575e; }
         .ft-wizard-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
@@ -1529,12 +1600,42 @@ return $updated;
 }
 public function register_settings() {
 register_setting('family_tree_settings', 'family_tree_license_key', array('sanitize_callback' => 'sanitize_text_field'));
-register_setting('family_tree_settings', 'family_tree_is_pro', array('sanitize_callback' => 'intval'));
-register_setting('family_tree_settings', 'family_tree_license_data', array('sanitize_callback' => array($this, 'sanitize_license_data')));
-register_setting('family_tree_settings', 'family_tree_license_last_check', array('sanitize_callback' => 'intval'));
-register_setting('family_tree_settings', 'family_tree_license_tier', array('sanitize_callback' => 'sanitize_text_field'));
-register_setting('family_tree_settings', 'family_tree_has_gedcom', array('sanitize_callback' => 'intval'));
-register_setting('family_tree_settings', 'family_tree_is_lifetime', array('sanitize_callback' => 'intval'));
+// Лицензионные опции INTENTIONALLY не регистрируются в Settings API:
+// они должны меняться только кодом (validate_license / heartbeat / force_free),
+// а не через options.php или произвольный POST.
+register_setting('family_tree_settings', 'family_tree_bg_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_bg_image', array('sanitize_callback' => 'esc_url_raw'));
+register_setting('family_tree_settings', 'family_tree_border_radius', array('sanitize_callback' => array($this, 'sanitize_css_size')));
+register_setting('family_tree_settings', 'family_tree_width', array('sanitize_callback' => array($this, 'sanitize_css_size')));
+register_setting('family_tree_settings', 'family_tree_height', array('sanitize_callback' => array($this, 'sanitize_css_size')));
+register_setting('family_tree_settings', 'family_tree_male_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_female_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_text_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_text_color_hover', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_card_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_card_width', array('sanitize_callback' => array($this, 'sanitize_tree_int')));
+register_setting('family_tree_settings', 'family_tree_card_height', array('sanitize_callback' => array($this, 'sanitize_tree_int')));
+register_setting('family_tree_settings', 'family_tree_name_font_family', array('sanitize_callback' => 'sanitize_text_field'));
+register_setting('family_tree_settings', 'family_tree_name_font_size', array('sanitize_callback' => 'intval'));
+register_setting('family_tree_settings', 'family_tree_name_font_weight', array('sanitize_callback' => 'intval'));
+register_setting('family_tree_settings', 'family_tree_date_font_family', array('sanitize_callback' => 'sanitize_text_field'));
+register_setting('family_tree_settings', 'family_tree_date_font_size', array('sanitize_callback' => 'intval'));
+register_setting('family_tree_settings', 'family_tree_date_font_weight', array('sanitize_callback' => 'intval'));
+register_setting('family_tree_settings', 'family_tree_male_placeholder', array('sanitize_callback' => 'esc_url_raw'));
+register_setting('family_tree_settings', 'family_tree_female_placeholder', array('sanitize_callback' => 'esc_url_raw'));
+register_setting('family_tree_settings', 'family_tree_catalog_bg', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_page_bg', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_letter_bg', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_letter_inactive_bg', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_letter_bg_hover', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_letter_text_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_letter_text_active', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_link_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_link_hover', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_litera_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_title_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_top_color', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
+register_setting('family_tree_settings', 'family_tree_catalog_top_hover', array('sanitize_callback' => array($this, 'sanitize_tree_color')));
 }
 // Функция санитизации для лицензионных данных
 public function sanitize_license_data($data) {
@@ -1557,6 +1658,178 @@ $sanitized[$safe_key] = sanitize_text_field((string) $value);
 }
 return $sanitized;
 }
+/**
+* Санитизация цвета фона древа. Допускает HEX (#rrggbb, #rgb) и rgba() с прозрачностью.
+*/
+public function sanitize_tree_color($value) {
+$value = family_tree_sanitize_str($value);
+$value = trim($value);
+if (empty($value)) {
+return '';
+}
+if (preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $value)) {
+return $value;
+}
+if (preg_match('/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(\s*,\s*(1(\.0+)?|0(\.\d+)?|\.\d+))?\s*\)$/i', $value)) {
+return $value;
+}
+return '';
+}
+/**
+* Санитизация CSS-размера поля древа (ширина/высота/скругление).
+* Допускает число с единицами px, %, vh, vw, em, rem, pt, cm, mm, in или ключевое слово auto.
+*/
+public function sanitize_css_size($value) {
+$value = family_tree_sanitize_str($value);
+$value = strtolower(trim($value));
+if (empty($value)) {
+return '';
+}
+if ($value === 'auto') {
+return 'auto';
+}
+if (preg_match('/^\d+(\.\d+)?(px|%|vh|vw|em|rem|pt|cm|mm|in)?$/', $value)) {
+return $value;
+}
+return '';
+}
+/**
+* Санитизация размеров карточек (ширина/высота в пикселях).
+*/
+public function sanitize_tree_int($value) {
+$value = (int) family_tree_sanitize_str($value);
+if ($value <= 0) {
+return 100;
+}
+if ($value > 800) {
+return 800;
+}
+return $value;
+}
+/**
+* Проверка и санитизация URL заглушки фото (JPG/PNG/SVG, квадратные, не более 300x300 px).
+* Возвращает массив: 'url' — допустимый URL (или '' при пустом поле), 'valid' — признак прохождения проверки, 'message' — текст ошибки.
+*/
+public function sanitize_placeholder_image($value) {
+$url = esc_url_raw(family_tree_sanitize_str($value));
+if (empty($url)) {
+return array('url' => '', 'valid' => true, 'message' => '');
+}
+$path = (string) parse_url($url, PHP_URL_PATH);
+$ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+$allowed = array('jpg', 'jpeg', 'png', 'svg');
+if (!in_array($ext, $allowed, true)) {
+return array('url' => '', 'valid' => false, 'message' => esc_html__('Допустимые форматы заглушек: JPG, PNG, SVG.', 'genius-family-tree'));
+}
+if ('svg' !== $ext) {
+$attachment_id = attachment_url_to_postid($url);
+if ($attachment_id) {
+$meta = wp_get_attachment_metadata($attachment_id);
+if (is_array($meta) && !empty($meta['width']) && !empty($meta['height'])) {
+$width = (int) $meta['width'];
+$height = (int) $meta['height'];
+if ($width > 300 || $height > 300) {
+return array('url' => '', 'valid' => false, 'message' => esc_html__('Изображение заглушки должно быть не более 300x300 px.', 'genius-family-tree'));
+}
+if ($width !== $height) {
+return array('url' => '', 'valid' => false, 'message' => esc_html__('Изображение заглушки должно быть квадратным (1:1).', 'genius-family-tree'));
+}
+}
+}
+}
+return array('url' => $url, 'valid' => true, 'message' => '');
+}
+/**
+* Санитизация числовых параметров оформления персоналий (скругление углов, толщина границы).
+*/
+public function sanitize_tree_dimension($value, $min = 0, $max = 200, $default = 0) {
+$value = (int) family_tree_sanitize_str($value);
+if ($value < $min) {
+return $min;
+}
+if ($value > $max) {
+return $max;
+}
+return $value;
+}
+/**
+* Санитизация стиля линии границы (solid, dashed, dotted).
+*/
+public function sanitize_border_style($value) {
+$value = family_tree_sanitize_str($value);
+$allowed = array('solid', 'dashed', 'dotted');
+return in_array($value, $allowed, true) ? $value : '';
+}
+/**
+* Список Google Fonts, доступных для выбора в настройках оформления персоналий.
+*/
+private static function get_google_fonts() {
+return array(
+'Roboto' => 'Roboto',
+'Montserrat' => 'Montserrat',
+'Playfair Display' => 'Playfair Display',
+'Lora' => 'Lora',
+'Merriweather' => 'Merriweather',
+'PT Serif' => 'PT Serif',
+'Oswald' => 'Oswald',
+'Raleway' => 'Raleway',
+'Cormorant' => 'Cormorant',
+'EB Garamond' => 'EB Garamond',
+'Exo 2' => 'Exo 2',
+'Alegreya' => 'Alegreya',
+'Noto Serif' => 'Noto Serif',
+'Caveat' => 'Caveat',
+'Pacifico' => 'Pacifico',
+);
+}
+/**
+* Доступные начертания (толщина) для указанной гарнитуры.
+* У каждого шрифта свой набор весов — учитывается при подборе Google Fonts и в селектах толщины.
+*/
+public static function get_font_weights($font) {
+$map = array(
+'Open Sans' => array(300, 400, 600, 700),
+'Roboto Slab' => array(400, 700),
+'Georgia' => array(400, 700),
+'Times New Roman' => array(400, 700),
+'Arial' => array(400, 700),
+'Verdana' => array(400, 700),
+'Tahoma' => array(400, 700),
+'Trebuchet MS' => array(400, 700),
+'Courier New' => array(400, 700),
+'Roboto' => array(300, 400, 500, 700),
+'Montserrat' => array(300, 400, 500, 600, 700),
+'Playfair Display' => array(400, 500, 600, 700, 800, 900),
+'Lora' => array(400, 500, 600, 700),
+'Merriweather' => array(300, 400, 700, 900),
+'PT Serif' => array(400, 700),
+'Oswald' => array(300, 400, 500, 600, 700),
+'Raleway' => array(300, 400, 500, 600, 700),
+'Cormorant' => array(300, 400, 500, 600, 700),
+'EB Garamond' => array(400, 500, 600, 700, 800),
+'Exo 2' => array(300, 400, 500, 600, 700),
+'Alegreya' => array(400, 500, 700, 800, 900),
+'Noto Serif' => array(400, 500, 600, 700),
+'Caveat' => array(400, 600, 700),
+'Pacifico' => array(400),
+);
+if (isset($map[$font])) {
+return $map[$font];
+}
+return array(400, 700);
+}
+/**
+* HTML опций селекта толщины для выбранной гарнитуры.
+*/
+public static function render_font_weight_options($font, $selected_weight) {
+$weights = self::get_font_weights($font);
+$out = '<option value="0" ' . selected((string) $selected_weight, '0', false) . '>' . esc_html__('По умолчанию', 'genius-family-tree') . '</option>';
+foreach ($weights as $w) {
+$w = (int) $w;
+$out .= '<option value="' . esc_attr($w) . '" ' . selected((string) $selected_weight, (string) $w, false) . '>' . esc_html($w) . '</option>';
+}
+return $out;
+}
 public function init() {
 // Регистрация типа записи
 Family_Tree_Post_Type::register();
@@ -1566,6 +1839,10 @@ Family_Tree_Meta_Boxes::init();
 Family_Tree_Ajax::init();
 // Регистрация шорткода
 Family_Tree_Shortcode::init();
+// Гарантируем, что heartbeat-проверка лицензии запланирована (в т.ч. после обновления плагина)
+if (!wp_next_scheduled('family_tree_license_heartbeat')) {
+$this->schedule_license_cron();
+}
 }
     public function activate() {
         // Регистрируем тип записи и пересохраняем правила
@@ -1575,6 +1852,8 @@ Family_Tree_Shortcode::init();
         $this->create_default_family_group();
         // Добавляем индексы для часто используемых мета-ключей
         $this->add_performance_indexes();
+        // Планируем фоновую перевалидацию лицензии
+        $this->schedule_license_cron();
     }
     /**
      * Добавляет индексы в таблицу postmeta для ускорения часто используемых запросов
@@ -1663,6 +1942,8 @@ return (int) $group_id;
 public function deactivate() {
 // Очищаем правила пермалинков
 flush_rewrite_rules();
+// Убираем фоновую перевалидацию лицензии
+$this->clear_license_cron();
 // При деактивации плагина пытаемся деактивировать лицензию на сервере
 $license_key = get_option('family_tree_license_key', '');
 if (!empty($license_key)) {
@@ -1676,11 +1957,15 @@ $this->send_activation_data($license_key, false);
 */
 private function deactivate_license_on_server($license_key) {
 $api_url = 'https://xn----8sbbdpda1c7cwf.xn--p1ai/wp-json/family-tree/v1/deactivate-license';
+$site_url = home_url();
+$timestamp = time();
 $response = wp_remote_post($api_url, array(
 'timeout' => 15,
 'body' => array(
 'license_key' => $license_key,
-'site_url' => home_url(),
+'site_url' => $site_url,
+'timestamp' => $timestamp,
+'signature' => hash_hmac('sha256', 'deactivate|' . $site_url . '|' . $timestamp, $license_key),
 )
 ));
 }
@@ -1688,7 +1973,7 @@ public function enqueue_scripts() {
 // Для страниц персон не загружаем скрипты древа вообще
 if (is_singular('family_member')) {
 // Загружаем только базовые стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.1');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.3');
 return;
 }
 // Не загружаем скрипты в админке
@@ -1700,26 +1985,550 @@ $should_load_scripts = $this->should_load_family_tree_scripts();
 // Загружаем скрипты только если они действительно нужны
 if ($should_load_scripts) {
 // Загружаем стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.1');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.3');
 // Загружаем D3.js
 wp_enqueue_script('d3', FAMILY_TREE_PLUGIN_URL . 'assets/vendor/d3.min.js', array(), '1.0.0', true);
 // Загружаем FamilyChart библиотеку (f3)
 wp_enqueue_script('family-chart', FAMILY_TREE_PLUGIN_URL . 'assets/vendor/family-chart.min.js', array('d3'), '1.0.0', true);
 // Загружаем наш скрипт
-wp_enqueue_script('family-tree-script', FAMILY_TREE_PLUGIN_URL . 'assets/js/family-tree.js', array('family-chart'), '1.4.1', true);
+wp_enqueue_script('family-tree-script', FAMILY_TREE_PLUGIN_URL . 'assets/js/family-tree.js', array('family-chart'), '1.4.3', true);
 // Локализация скрипта с plugin_url
 wp_localize_script('family-tree-script', 'familyTreeAjax', array(
-'ajaxurl' => admin_url('admin-ajax.php'),
-'nonce' => wp_create_nonce('family_tree_nonce'),
-'plugin_url' => FAMILY_TREE_PLUGIN_URL,
-'silhouette_man' => FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-man.svg',
-'silhouette_woman' => FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-woman.svg',
-'root_member_id' => $this->get_root_member_id()
+    'ajaxurl' => admin_url('admin-ajax.php'),
+    'nonce' => wp_create_nonce('family_tree_nonce'),
+    'plugin_url' => FAMILY_TREE_PLUGIN_URL,
+    'silhouette_man' => FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-man.svg',
+    'silhouette_woman' => FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-woman.svg',
+    'logo_url' => FAMILY_TREE_PLUGIN_URL . 'assets/images/logo.svg',
+    'site_url' => home_url(),
+    'root_member_id' => $this->get_root_member_id(),
+'card_width' => (int) get_option('family_tree_card_width', 220),
+'card_height' => (int) get_option('family_tree_card_height', 100),
+'disable_wheel_zoom' => (int) get_option('family_tree_disable_wheel_zoom', 0),
+'toolbar_position' => get_option('family_tree_toolbar_position', 'bottom-right')
 ));
 } else {
 // Загружаем только стили
-wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.1');
+wp_enqueue_style('family-tree-style', FAMILY_TREE_PLUGIN_URL . 'assets/css/family-tree.css', array(), '1.4.3');
 }
+}
+/**
+* Выводит пользовательские стили для семейного древа (цвет, фон, размеры, скругление и цвета карточек)
+*/
+public function output_tree_custom_styles() {
+if (is_admin()) {
+return;
+}
+$has_tree = $this->should_load_family_tree_scripts();
+$has_catalog = $this->should_load_catalog_scripts();
+if (!$has_tree && !$has_catalog) {
+return;
+}
+$bg_color = get_option('family_tree_bg_color', '');
+$bg_image = get_option('family_tree_bg_image', '');
+$border_radius = get_option('family_tree_border_radius', '');
+$tree_width = get_option('family_tree_width', '');
+$tree_height = get_option('family_tree_height', '');
+$male_color = get_option('family_tree_male_color', '');
+$female_color = get_option('family_tree_female_color', '');
+$text_color = get_option('family_tree_text_color', '');
+$text_color_hover = get_option('family_tree_text_color_hover', '');
+$card_color = get_option('family_tree_card_color', '');
+$name_font_family = get_option('family_tree_name_font_family', '');
+$name_font_size = family_tree_font_size_value('family_tree_name_font_size', 12);
+$name_font_weight = (int) get_option('family_tree_name_font_weight', 0);
+$date_font_family = get_option('family_tree_date_font_family', '');
+$date_font_size = family_tree_font_size_value('family_tree_date_font_size', 10);
+$date_font_weight = (int) get_option('family_tree_date_font_weight', 0);
+$toolbar_btn_bg = get_option('family_tree_toolbar_btn_bg', '');
+$toolbar_btn_bg_hover = get_option('family_tree_toolbar_btn_bg_hover', '');
+$toolbar_icon_color = get_option('family_tree_toolbar_icon_color', '');
+$toolbar_icon_color_hover = get_option('family_tree_toolbar_icon_color_hover', '');
+$toolbar_position = get_option('family_tree_toolbar_position', 'bottom-right');
+$catalog_bg = get_option('family_tree_catalog_bg', '');
+$catalog_page_bg = get_option('family_tree_catalog_page_bg', '');
+$catalog_letter_bg = get_option('family_tree_catalog_letter_bg', '');
+$catalog_letter_inactive_bg = get_option('family_tree_catalog_letter_inactive_bg', '');
+$catalog_letter_bg_hover = get_option('family_tree_catalog_letter_bg_hover', '');
+$catalog_letter_text_color = get_option('family_tree_catalog_letter_text_color', '');
+$catalog_letter_text_active = get_option('family_tree_catalog_letter_text_active', '');
+$catalog_letter_font_family = get_option('family_tree_catalog_letter_font_family', '');
+$catalog_letter_font_size = family_tree_font_size_value('family_tree_catalog_letter_font_size', 14);
+$catalog_letter_font_weight = (int) get_option('family_tree_catalog_letter_font_weight', 0);
+$catalog_title_font_family = get_option('family_tree_catalog_title_font_family', '');
+$catalog_title_font_size = family_tree_font_size_value('family_tree_catalog_title_font_size', 18);
+$catalog_title_font_weight = (int) get_option('family_tree_catalog_title_font_weight', 0);
+$catalog_link_color = get_option('family_tree_catalog_link_color', '');
+$catalog_link_hover = get_option('family_tree_catalog_link_hover', '');
+$catalog_link_font_family = get_option('family_tree_catalog_link_font_family', '');
+$catalog_link_font_size = family_tree_font_size_value('family_tree_catalog_link_font_size', 14);
+$catalog_link_font_weight = (int) get_option('family_tree_catalog_link_font_weight', 0);
+$catalog_litera_color = get_option('family_tree_catalog_litera_color', '');
+$catalog_litera_font_family = get_option('family_tree_catalog_litera_font_family', '');
+$catalog_litera_font_size = family_tree_font_size_value('family_tree_catalog_litera_font_size', 18);
+$catalog_litera_font_weight = (int) get_option('family_tree_catalog_litera_font_weight', 0);
+$catalog_title_color = get_option('family_tree_catalog_title_color', '');
+$catalog_top_color = get_option('family_tree_catalog_top_color', '');
+$catalog_top_hover = get_option('family_tree_catalog_top_hover', '');
+$catalog_top_font_family = get_option('family_tree_catalog_top_font_family', '');
+$catalog_top_font_size = family_tree_font_size_value('family_tree_catalog_top_font_size', 14);
+$catalog_top_font_weight = (int) get_option('family_tree_catalog_top_font_weight', 0);
+if (empty($bg_color) && empty($bg_image) && empty($border_radius) && empty($tree_width) && empty($tree_height) && empty($male_color) && empty($female_color) && empty($text_color) && empty($text_color_hover) && empty($card_color) && empty($name_font_family) && empty($name_font_size) && empty($name_font_weight) && empty($date_font_family) && empty($date_font_size) && empty($date_font_weight) && empty($catalog_bg) && empty($catalog_page_bg) && empty($catalog_letter_bg) && empty($catalog_letter_inactive_bg) && empty($catalog_letter_bg_hover) && empty($catalog_letter_text_color) && empty($catalog_letter_text_active) && empty($catalog_letter_font_family) && empty($catalog_letter_font_size) && empty($catalog_letter_font_weight) && empty($catalog_title_font_family) && empty($catalog_title_font_size) && empty($catalog_title_font_weight) && empty($catalog_link_color) && empty($catalog_link_hover) && empty($catalog_link_font_family) && empty($catalog_link_font_size) && empty($catalog_link_font_weight) && empty($catalog_litera_color) && empty($catalog_litera_font_family) && empty($catalog_litera_font_size) && empty($catalog_litera_font_weight) && empty($catalog_title_color) && empty($catalog_top_color) && empty($catalog_top_hover) && empty($catalog_top_font_family) && empty($catalog_top_font_size) && empty($catalog_top_font_weight) && empty($toolbar_btn_bg) && empty($toolbar_btn_bg_hover) && empty($toolbar_icon_color) && empty($toolbar_icon_color_hover) && $toolbar_position === 'bottom-right') {
+return;
+}
+$css = '';
+$container_rules = '';
+if (!empty($tree_width) || !empty($tree_height) || !empty($border_radius)) {
+$container_rules = '.f3 {';
+if (!empty($tree_width)) {
+$container_rules .= ' width: ' . esc_attr($tree_width) . ' !important;';
+}
+if (!empty($tree_height)) {
+$container_rules .= ' height: ' . esc_attr($tree_height) . ' !important;';
+}
+if (!empty($border_radius)) {
+$container_rules .= ' border-radius: ' . esc_attr($border_radius) . ' !important;';
+}
+$container_rules .= ' }';
+}
+$bg_rules = '';
+if (!empty($bg_image) || !empty($bg_color)) {
+$bg_rules = '.f3 svg.main_svg {';
+if (!empty($bg_image)) {
+$bg_rules .= ' background-image: url(\'' . esc_url($bg_image) . '\') !important;';
+$bg_rules .= ' background-size: cover !important;';
+$bg_rules .= ' background-position: center center !important;';
+$bg_rules .= ' background-repeat: no-repeat !important;';
+}
+if (!empty($bg_color)) {
+$bg_rules .= ' background-color: ' . esc_html($bg_color) . ' !important;';
+}
+$bg_rules .= ' }';
+}
+$gender_rules = '';
+$male_fill = !empty($male_color) ? $male_color : '#ADD8E6';
+$female_fill = !empty($female_color) ? $female_color : '#FFB6C1';
+if (!empty($male_color) || !empty($female_color) || !empty($card_color)) {
+$gender_rules .= '.f3 rect.card-male { fill: ' . esc_html($male_fill) . ' !important; }';
+$gender_rules .= '.f3 rect.card-female { fill: ' . esc_html($female_fill) . ' !important; }';
+$gender_rules .= '.f3 .card-male .card-outline { stroke: ' . esc_html($male_fill) . ' !important; }';
+$gender_rules .= '.f3 .card-female .card-outline { stroke: ' . esc_html($female_fill) . ' !important; }';
+$gender_rules .= '.f3 .card-male:hover .card-body:not(.card_add):not(.card_unknown) .card-body-rect, .f3 .card-male:hover .card-body:not(.card_add):not(.card_unknown) .text-overflow-mask { fill: ' . esc_html($male_fill) . ' !important; }';
+$gender_rules .= '.f3 .card-female:hover .card-body:not(.card_add):not(.card_unknown) .card-body-rect, .f3 .card-female:hover .card-body:not(.card_add):not(.card_unknown) .text-overflow-mask { fill: ' . esc_html($female_fill) . ' !important; }';
+}
+$text_rules = '';
+if (!empty($text_color)) {
+$text_rules .= '.f3 .card_family_tree text, .f3 svg.main_svg .card-body:not(.card_add):not(.card_unknown) text { fill: ' . esc_html($text_color) . ' !important; }';
+}
+if (!empty($text_color_hover)) {
+$text_rules .= '.f3 .card:hover .card_family_tree text, .f3 svg.main_svg .card:hover .card-body:not(.card_add):not(.card_unknown) text { fill: ' . esc_html($text_color_hover) . ' !important; }';
+}
+$card_rules = '';
+if (!empty($card_color)) {
+$card_rules .= '.f3 .card .card-body:not(.card_add):not(.card_unknown) .card-body-rect, .f3 .card .card-body:not(.card_add):not(.card_unknown) .text-overflow-mask { fill: ' . esc_html($card_color) . ' !important; }';
+}
+$name_font_rules = '';
+if (!empty($name_font_family) || !empty($name_font_size) || !empty($name_font_weight)) {
+$name_font_rules .= '.f3 svg.main_svg .card-body text tspan[font-size="12"] {';
+if (!empty($name_font_family)) {
+$name_font_rules .= ' font-family: ' . esc_html($name_font_family) . ' !important;';
+}
+if (!empty($name_font_size)) {
+$name_font_rules .= ' font-size: ' . esc_html($name_font_size) . 'px !important;';
+}
+if (!empty($name_font_weight)) {
+$name_font_rules .= ' font-weight: ' . esc_html($name_font_weight) . ' !important;';
+}
+$name_font_rules .= ' }';
+}
+$date_font_rules = '';
+if (!empty($date_font_family) || !empty($date_font_size) || !empty($date_font_weight)) {
+$date_font_rules .= '.f3 svg.main_svg .card-body text tspan[font-size="10"] {';
+if (!empty($date_font_family)) {
+$date_font_rules .= ' font-family: ' . esc_html($date_font_family) . ' !important;';
+}
+if (!empty($date_font_size)) {
+$date_font_rules .= ' font-size: ' . esc_html($date_font_size) . 'px !important;';
+}
+if (!empty($date_font_weight)) {
+$date_font_rules .= ' font-weight: ' . esc_html($date_font_weight) . ' !important;';
+}
+$date_font_rules .= ' }';
+}
+$catalog_rules = '';
+if (!empty($catalog_page_bg)) {
+$catalog_rules .= '.family-tree-surname-catalog { background: ' . esc_html($catalog_page_bg) . ' !important; }';
+$catalog_rules .= '.family-member-single { background: ' . esc_html($catalog_page_bg) . ' !important; }';
+}
+if (!empty($catalog_bg)) {
+$catalog_rules .= '.family-tree-surname-catalog .catalog-alphabet, .family-tree-surname-catalog .surname-section { background: ' . esc_html($catalog_bg) . ' !important; }';
+}
+$catalog_letter_rules = '';
+if (!empty($catalog_letter_font_family) || !empty($catalog_letter_font_size) || !empty($catalog_letter_font_weight)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter a, .family-tree-surname-catalog .alphabet-letter span {';
+if (!empty($catalog_letter_font_family)) {
+$catalog_letter_rules .= ' font-family: ' . esc_html($catalog_letter_font_family) . ' !important;';
+}
+if (!empty($catalog_letter_font_size)) {
+$catalog_letter_rules .= ' font-size: ' . esc_html($catalog_letter_font_size) . 'px !important;';
+}
+if (!empty($catalog_letter_font_weight)) {
+$catalog_letter_rules .= ' font-weight: ' . esc_html($catalog_letter_font_weight) . ' !important;';
+}
+$catalog_letter_rules .= ' }';
+}
+if (!empty($catalog_letter_text_color)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter span { color: ' . esc_html($catalog_letter_text_color) . ' !important; }';
+}
+if (!empty($catalog_letter_inactive_bg)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter span { background: ' . esc_html($catalog_letter_inactive_bg) . ' !important; }';
+}
+if (!empty($catalog_letter_text_active)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter.active a { color: ' . esc_html($catalog_letter_text_active) . ' !important; }';
+}
+if (!empty($catalog_letter_bg)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter.active a { background: ' . esc_html($catalog_letter_bg) . ' !important; }';
+}
+if (!empty($catalog_letter_bg_hover)) {
+$catalog_letter_rules .= '.family-tree-surname-catalog .alphabet-letter.active a:hover { background: ' . esc_html($catalog_letter_bg_hover) . ' !important; }';
+}
+if (!empty($catalog_title_font_family) || !empty($catalog_title_font_size) || !empty($catalog_title_font_weight)) {
+$catalog_rules .= '.family-tree-surname-catalog .surname-title {';
+if (!empty($catalog_title_font_family)) {
+$catalog_rules .= ' font-family: ' . esc_html($catalog_title_font_family) . ' !important;';
+}
+if (!empty($catalog_title_font_size)) {
+$catalog_rules .= ' font-size: ' . esc_html($catalog_title_font_size) . 'px !important;';
+}
+if (!empty($catalog_title_font_weight)) {
+$catalog_rules .= ' font-weight: ' . esc_html($catalog_title_font_weight) . ' !important;';
+}
+$catalog_rules .= ' }';
+}
+if (!empty($catalog_title_color)) {
+$catalog_rules .= '.family-tree-surname-catalog .surname-title { color: ' . esc_html($catalog_title_color) . ' !important; }';
+}
+if (!empty($catalog_litera_font_family) || !empty($catalog_litera_font_size) || !empty($catalog_litera_font_weight) || !empty($catalog_litera_color)) {
+$catalog_rules .= '.family-tree-surname-catalog .catalog-surnames .surname-section h2 {';
+if (!empty($catalog_litera_font_family)) {
+$catalog_rules .= ' font-family: ' . esc_html($catalog_litera_font_family) . ' !important;';
+}
+if (!empty($catalog_litera_font_size)) {
+$catalog_rules .= ' font-size: ' . esc_html($catalog_litera_font_size) . 'px !important;';
+}
+if (!empty($catalog_litera_font_weight)) {
+$catalog_rules .= ' font-weight: ' . esc_html($catalog_litera_font_weight) . ' !important;';
+}
+if (!empty($catalog_litera_color)) {
+$catalog_rules .= ' color: ' . esc_html($catalog_litera_color) . ' !important;';
+}
+$catalog_rules .= ' }';
+}
+if (!empty($catalog_top_font_family) || !empty($catalog_top_font_size) || !empty($catalog_top_font_weight) || !empty($catalog_top_color)) {
+$catalog_rules .= '.family-tree-surname-catalog .back-to-top a {';
+if (!empty($catalog_top_font_family)) {
+$catalog_rules .= ' font-family: ' . esc_html($catalog_top_font_family) . ' !important;';
+}
+if (!empty($catalog_top_font_size)) {
+$catalog_rules .= ' font-size: ' . esc_html($catalog_top_font_size) . 'px !important;';
+}
+if (!empty($catalog_top_font_weight)) {
+$catalog_rules .= ' font-weight: ' . esc_html($catalog_top_font_weight) . ' !important;';
+}
+if (!empty($catalog_top_color)) {
+$catalog_rules .= ' color: ' . esc_html($catalog_top_color) . ' !important;';
+}
+$catalog_rules .= ' }';
+}
+if (!empty($catalog_top_hover)) {
+$catalog_rules .= '.family-tree-surname-catalog .back-to-top a:hover { color: ' . esc_html($catalog_top_hover) . ' !important; }';
+}
+if (!empty($catalog_link_font_family) || !empty($catalog_link_font_size) || !empty($catalog_link_font_weight) || !empty($catalog_link_color)) {
+$catalog_rules .= '.family-tree-surname-catalog .member-item a {';
+if (!empty($catalog_link_font_family)) {
+$catalog_rules .= ' font-family: ' . esc_html($catalog_link_font_family) . ' !important;';
+}
+if (!empty($catalog_link_font_size)) {
+$catalog_rules .= ' font-size: ' . esc_html($catalog_link_font_size) . 'px !important;';
+}
+if (!empty($catalog_link_font_weight)) {
+$catalog_rules .= ' font-weight: ' . esc_html($catalog_link_font_weight) . ' !important;';
+}
+if (!empty($catalog_link_color)) {
+$catalog_rules .= ' color: ' . esc_html($catalog_link_color) . ' !important;';
+}
+$catalog_rules .= ' }';
+}
+if (!empty($catalog_link_hover)) {
+$catalog_rules .= '.family-tree-surname-catalog .member-item a:hover { color: ' . esc_html($catalog_link_hover) . ' !important; }';
+}
+$ft_available_google = self::get_google_fonts();
+$ft_google_to_load = array();
+if (!empty($name_font_family) && isset($ft_available_google[$name_font_family])) {
+$ft_google_to_load[] = $name_font_family;
+}
+if (!empty($date_font_family) && isset($ft_available_google[$date_font_family])) {
+$ft_google_to_load[] = $date_font_family;
+}
+if (!empty($catalog_letter_font_family) && isset($ft_available_google[$catalog_letter_font_family])) {
+$ft_google_to_load[] = $catalog_letter_font_family;
+}
+if (!empty($catalog_title_font_family) && isset($ft_available_google[$catalog_title_font_family])) {
+$ft_google_to_load[] = $catalog_title_font_family;
+}
+if (!empty($catalog_litera_font_family) && isset($ft_available_google[$catalog_litera_font_family])) {
+$ft_google_to_load[] = $catalog_litera_font_family;
+}
+if (!empty($catalog_top_font_family) && isset($ft_available_google[$catalog_top_font_family])) {
+$ft_google_to_load[] = $catalog_top_font_family;
+}
+if (!empty($catalog_link_font_family) && isset($ft_available_google[$catalog_link_font_family])) {
+$ft_google_to_load[] = $catalog_link_font_family;
+}
+$ft_google_to_load = array_unique($ft_google_to_load);
+foreach ($ft_google_to_load as $ft_google_font) {
+$ft_weights = self::get_font_weights($ft_google_font);
+$ft_weights_str = implode(';', array_map('intval', $ft_weights));
+echo '<link rel="stylesheet" href="' . esc_url('https://fonts.googleapis.com/css2?family=' . rawurlencode($ft_google_font) . ':wght@' . $ft_weights_str . '&display=swap') . '" />' . "\n";
+}
+$toolbar_rules = '';
+if (!empty($toolbar_btn_bg) || !empty($toolbar_btn_bg_hover) || !empty($toolbar_icon_color) || !empty($toolbar_icon_color_hover) || $toolbar_position !== 'bottom-right') {
+if (!empty($toolbar_btn_bg)) {
+$toolbar_rules .= '.f3 .ft-toolbar-btn { background: ' . esc_html($toolbar_btn_bg) . ' !important; }';
+}
+if (!empty($toolbar_icon_color)) {
+$toolbar_rules .= '.f3 .ft-toolbar-btn { color: ' . esc_html($toolbar_icon_color) . ' !important; }';
+}
+if (!empty($toolbar_btn_bg_hover)) {
+$toolbar_rules .= '.f3 .ft-toolbar-btn:hover { background: ' . esc_html($toolbar_btn_bg_hover) . ' !important; }';
+$toolbar_rules .= '.f3 .ft-toolbar-btn:hover { border-color: ' . esc_html($toolbar_btn_bg_hover) . ' !important; }';
+$toolbar_rules .= '.f3 .ft-toolbar-btn:hover { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25) !important; }';
+}
+if (!empty($toolbar_icon_color_hover)) {
+$toolbar_rules .= '.f3 .ft-toolbar-btn:hover { color: ' . esc_html($toolbar_icon_color_hover) . ' !important; }';
+}
+$position_map = array(
+'top-left' => 'top: 12px; left: 12px; bottom: auto; right: auto;',
+'top-right' => 'top: 12px; right: 12px; bottom: auto; left: auto;',
+'bottom-right' => 'bottom: 12px; right: 12px; top: auto; left: auto;',
+'bottom-left' => 'bottom: 12px; left: 12px; top: auto; right: auto;',
+);
+if (!empty($position_map[$toolbar_position])) {
+$toolbar_rules .= '.f3 .ft-tree-toolbar { ' . $position_map[$toolbar_position] . ' }';
+}
+}
+$css = $container_rules . $bg_rules . $gender_rules . $text_rules . $card_rules . $name_font_rules . $date_font_rules . $catalog_rules . $catalog_letter_rules . $toolbar_rules;
+?>
+<style type="text/css">
+<?php echo $css; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+</style>
+<?php
+}
+/**
+* Выводит пользовательские стили страниц отдельных персон (фон, текст, шрифт, кнопки, ссылки)
+*/
+public function output_person_styles() {
+if (is_admin() || !is_singular('family_member')) {
+return;
+}
+$bg = get_option('family_tree_person_bg', '');
+$header = get_option('family_tree_person_header', '');
+$tree_button = get_option('family_tree_person_tree_button', '');
+$tree_button_text_color = get_option('family_tree_person_tree_button_text_color', '');
+$tree_button_font_family = get_option('family_tree_person_tree_button_font_family', '');
+$tree_button_font_size = family_tree_font_size_value('family_tree_person_tree_button_font_size', 14);
+$link = get_option('family_tree_person_link', '');
+$content_bg = get_option('family_tree_person_content_bg', '');
+$sidebar_bg = get_option('family_tree_person_sidebar_bg', '');
+$content_radius = (int) get_option('family_tree_person_content_radius', 0);
+$content_border_width = (int) get_option('family_tree_person_content_border_width', 0);
+$content_border_style = get_option('family_tree_person_content_border_style', '');
+$content_border_color = get_option('family_tree_person_content_border_color', '');
+$sidebar_radius = (int) get_option('family_tree_person_sidebar_radius', 0);
+$sidebar_border_width = (int) get_option('family_tree_person_sidebar_border_width', 0);
+$sidebar_border_style = get_option('family_tree_person_sidebar_border_style', '');
+$sidebar_border_color = get_option('family_tree_person_sidebar_border_color', '');
+$header_radius = (int) get_option('family_tree_person_header_radius', 0);
+$header_border_width = (int) get_option('family_tree_person_header_border_width', 0);
+$header_border_style = get_option('family_tree_person_header_border_style', '');
+$header_border_color = get_option('family_tree_person_header_border_color', '');
+$header_font_family = get_option('family_tree_person_header_font_family', '');
+$header_font_size = family_tree_font_size_value('family_tree_person_header_font_size', 32);
+$header_font_size_tablet = family_tree_font_size_value('family_tree_person_header_font_size_tablet', 28);
+$header_font_size_mobile = family_tree_font_size_value('family_tree_person_header_font_size_mobile', 24);
+$sidebar_text_color = get_option('family_tree_person_sidebar_text_color', '');
+$sidebar_text_font_family = get_option('family_tree_person_sidebar_text_font_family', '');
+$sidebar_text_font_size = family_tree_font_size_value('family_tree_person_sidebar_text_font_size', 16);
+$sidebar_heading_color = get_option('family_tree_person_sidebar_heading_color', '');
+$sidebar_heading_font_family = get_option('family_tree_person_sidebar_heading_font_family', '');
+$sidebar_heading_font_size = family_tree_font_size_value('family_tree_person_sidebar_heading_font_size', 19);
+    $header_title_color = get_option('family_tree_person_header_title_color', '');
+    $header_font_weight = (int) get_option('family_tree_person_header_font_weight', 0);
+    $tree_button_font_weight = (int) get_option('family_tree_person_tree_button_font_weight', 0);
+    $sidebar_heading_font_weight = (int) get_option('family_tree_person_sidebar_heading_font_weight', 0);
+    $sidebar_text_font_weight = (int) get_option('family_tree_person_sidebar_text_font_weight', 0);
+if (empty($bg) && empty($header) && empty($tree_button) && empty($tree_button_text_color) && empty($tree_button_font_family) && empty($tree_button_font_size) && empty($tree_button_font_weight) && empty($link)
+    && empty($content_bg) && empty($content_radius) && empty($content_border_width) && empty($content_border_color)
+    && empty($sidebar_bg) && empty($sidebar_radius) && empty($sidebar_border_width) && empty($sidebar_border_color)
+    && empty($header_radius) && empty($header_border_width) && empty($header_border_color)
+    && empty($header_font_family) && empty($header_font_size) && empty($header_font_size_tablet) && empty($header_font_size_mobile)
+    && empty($header_title_color) && empty($header_font_weight)
+    && empty($sidebar_text_color) && empty($sidebar_text_font_family) && empty($sidebar_text_font_size) && empty($sidebar_text_font_weight)
+    && empty($sidebar_heading_color) && empty($sidebar_heading_font_family) && empty($sidebar_heading_font_size) && empty($sidebar_heading_font_weight)) {
+return;
+}
+$css = '';
+if (!empty($bg)) {
+$css .= '.family-member-single { background-color: ' . esc_html($bg) . ' !important; }';
+}
+if (!empty($sidebar_text_color) || !empty($sidebar_text_font_family) || $sidebar_text_font_size > 0 || $sidebar_text_font_weight > 0) {
+$css .= '.family-member-sidebar {';
+if (!empty($sidebar_text_color)) {
+$css .= ' color: ' . esc_html($sidebar_text_color) . ' !important;';
+}
+if (!empty($sidebar_text_font_family)) {
+$css .= ' font-family: \'' . esc_attr($sidebar_text_font_family) . '\', serif !important;';
+}
+if ($sidebar_text_font_size > 0) {
+$css .= ' font-size: ' . intval($sidebar_text_font_size) . 'px !important;';
+}
+if ($sidebar_text_font_weight > 0) {
+$css .= ' font-weight: ' . intval($sidebar_text_font_weight) . ' !important;';
+}
+$css .= ' }';
+}
+if (!empty($sidebar_heading_color) || !empty($sidebar_heading_font_family) || $sidebar_heading_font_size > 0 || $sidebar_heading_font_weight > 0) {
+$css .= '.family-member-sidebar h2 {';
+if (!empty($sidebar_heading_color)) {
+$css .= ' color: ' . esc_html($sidebar_heading_color) . ' !important;';
+}
+if (!empty($sidebar_heading_font_family)) {
+$css .= ' font-family: \'' . esc_attr($sidebar_heading_font_family) . '\', serif !important;';
+}
+if ($sidebar_heading_font_size > 0) {
+$css .= ' font-size: ' . intval($sidebar_heading_font_size) . 'px !important;';
+}
+if ($sidebar_heading_font_weight > 0) {
+$css .= ' font-weight: ' . intval($sidebar_heading_font_weight) . ' !important;';
+}
+$css .= ' }';
+}
+if (!empty($tree_button) || !empty($tree_button_font_family) || $tree_button_font_size > 0 || $tree_button_font_weight > 0) {
+$css .= '.family-member-header .button {';
+if (!empty($tree_button)) {
+$css .= ' background: ' . esc_html($tree_button) . ' !important; border-color: ' . esc_html($tree_button) . ' !important;';
+}
+if (!empty($tree_button_text_color)) {
+$css .= ' color: ' . esc_html($tree_button_text_color) . ' !important;';
+}
+if (!empty($tree_button_font_family)) {
+$css .= ' font-family: \'' . esc_attr($tree_button_font_family) . '\', serif !important;';
+}
+if ($tree_button_font_size > 0) {
+$css .= ' font-size: ' . intval($tree_button_font_size) . 'px !important;';
+}
+if ($tree_button_font_weight > 0) {
+$css .= ' font-weight: ' . intval($tree_button_font_weight) . ' !important;';
+}
+$css .= ' }';
+if (!empty($tree_button)) {
+$css .= '.family-member-header .button:hover { background: ' . esc_html($tree_button) . ' !important; filter: brightness(0.9); }';
+}
+}
+if (!empty($link)) {
+$css .= '.family-member-parents a, .family-member-siblings a, .family-member-spouses a, .family-member-children a, .family-member-sidebar a, .family-member-content-gutenberg a { color: ' . esc_html($link) . ' !important; }';
+$css .= '.family-member-parents a:hover, .family-member-siblings a:hover, .family-member-spouses a:hover, .family-member-children a:hover, .family-member-sidebar a:hover, .family-member-content-gutenberg a:hover { color: ' . esc_html($link) . ' !important; filter: brightness(0.85); }';
+}
+$style_whitelist = array('solid', 'dashed', 'dotted');
+$ft_border_style = function ($value) use ($style_whitelist) {
+return in_array($value, $style_whitelist, true) ? $value : 'solid';
+};
+if (!empty($content_bg) || $content_radius > 0 || $content_border_width > 0 || !empty($content_border_color)) {
+$css .= '.family-member-content-gutenberg {';
+if (!empty($content_bg)) {
+$css .= ' background: ' . esc_html($content_bg) . ' !important;';
+}
+if ($content_radius > 0) {
+$css .= ' border-radius: ' . intval($content_radius) . 'px !important;';
+}
+if ($content_border_width > 0 || !empty($content_border_color)) {
+$css .= ' border: ' . max(1, intval($content_border_width)) . 'px ' . esc_html($ft_border_style($content_border_style)) . ' ' . esc_html(!empty($content_border_color) ? $content_border_color : '#f0f0f1') . ' !important;';
+}
+$css .= ' }';
+}
+if (!empty($sidebar_bg) || $sidebar_radius > 0 || $sidebar_border_width > 0 || !empty($sidebar_border_color)) {
+$css .= '.family-member-sidebar {';
+if (!empty($sidebar_bg)) {
+$css .= ' background: ' . esc_html($sidebar_bg) . ' !important;';
+}
+if ($sidebar_radius > 0) {
+$css .= ' border-radius: ' . intval($sidebar_radius) . 'px !important;';
+}
+if ($sidebar_border_width > 0 || !empty($sidebar_border_color)) {
+$css .= ' border: ' . max(1, intval($sidebar_border_width)) . 'px ' . esc_html($ft_border_style($sidebar_border_style)) . ' ' . esc_html(!empty($sidebar_border_color) ? $sidebar_border_color : '#f0f0f1') . ' !important;';
+}
+$css .= ' }';
+}
+if (!empty($header) || $header_radius > 0 || $header_border_width > 0 || !empty($header_border_color)) {
+$css .= '.family-member-header { padding: 24px;';
+if (!empty($header)) {
+$css .= ' background: ' . esc_html($header) . ' !important;';
+}
+$css .= ' border-radius: ' . ($header_radius > 0 ? intval($header_radius) : 8) . 'px !important;';
+if ($header_border_width > 0 || !empty($header_border_color)) {
+$css .= ' border: ' . max(1, intval($header_border_width)) . 'px ' . esc_html($ft_border_style($header_border_style)) . ' ' . esc_html(!empty($header_border_color) ? $header_border_color : '#f0f0f1') . ' !important;';
+} else {
+$css .= ' border-bottom: none !important;';
+}
+$css .= ' }';
+}
+if (!empty($header_font_family) || $header_font_size > 0 || !empty($header_title_color) || $header_font_weight > 0) {
+$css .= '.family-member-header h1 {';
+if (!empty($header_title_color)) {
+$css .= ' color: ' . esc_html($header_title_color) . ' !important;';
+}
+if (!empty($header_font_family)) {
+$css .= ' font-family: \'' . esc_attr($header_font_family) . '\', serif !important;';
+}
+if ($header_font_size > 0) {
+$css .= ' font-size: ' . intval($header_font_size) . 'px !important;';
+}
+if ($header_font_weight > 0) {
+$css .= ' font-weight: ' . intval($header_font_weight) . ' !important;';
+}
+$css .= ' }';
+}
+if ($header_font_size_tablet > 0) {
+$css .= '@media (max-width: 1024px) { .family-member-header h1 { font-size: ' . intval($header_font_size_tablet) . 'px !important; } }';
+}
+if ($header_font_size_mobile > 0) {
+$css .= '@media (max-width: 767px) { .family-member-header h1 { font-size: ' . intval($header_font_size_mobile) . 'px !important; } }';
+}
+$ft_available_google = self::get_google_fonts();
+$ft_google_to_load = array();
+if (!empty($header_font_family) && isset($ft_available_google[$header_font_family])) {
+$ft_google_to_load[] = $header_font_family;
+}
+if (!empty($tree_button_font_family) && isset($ft_available_google[$tree_button_font_family])) {
+$ft_google_to_load[] = $tree_button_font_family;
+}
+if (!empty($sidebar_text_font_family) && isset($ft_available_google[$sidebar_text_font_family])) {
+$ft_google_to_load[] = $sidebar_text_font_family;
+}
+if (!empty($sidebar_heading_font_family) && isset($ft_available_google[$sidebar_heading_font_family])) {
+$ft_google_to_load[] = $sidebar_heading_font_family;
+}
+$ft_google_to_load = array_unique($ft_google_to_load);
+foreach ($ft_google_to_load as $ft_google_font) {
+$ft_weights = self::get_font_weights($ft_google_font);
+$ft_weights_str = implode(';', array_map('intval', $ft_weights));
+echo '<link rel="stylesheet" href="' . esc_url('https://fonts.googleapis.com/css2?family=' . rawurlencode($ft_google_font) . ':wght@' . $ft_weights_str . '&display=swap') . '" />' . "\n";
+}
+?>
+<style type="text/css">
+<?php echo $css; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+</style>
+<?php
 }
 private function should_load_family_tree_scripts() {
 // Проверяем только на страницах, где может быть древо
@@ -1738,15 +2547,38 @@ return true;
 }
 return false;
 }
+private function should_load_catalog_scripts() {
+// Архив "Члены семьи" автоматически показывает каталог фамилий
+if (is_post_type_archive('family_member')) {
+return true;
+}
+// Проверяем только на страницах, где может быть каталог фамилий
+if (is_page() || is_single() || is_home() || is_archive()) {
+global $post;
+if ($post) {
+// Проверяем наличие шорткода
+if (has_shortcode($post->post_content, 'family_surname_catalog')) {
+return true;
+}
+// Проверяем по содержанию
+if (strpos($post->post_content, '[family_surname_catalog') !== false) {
+return true;
+}
+}
+}
+return false;
+}
 public function admin_enqueue_scripts($hook) {
 global $post_type, $pagenow;
+// Флаг страницы настроек плагина (хук сабменю может различаться в зависимости от WP/темы)
+$is_ft_settings = (false !== strpos((string) $hook, 'family-tree-settings'));
 // Отключаем heartbeat на странице настроек плагина
-if ($hook === 'family_member_page_family-tree-settings') {
+if ($is_ft_settings) {
 wp_deregister_script('heartbeat');
 }
 if (($hook == 'post-new.php' || $hook == 'post.php') && ($post_type == 'family_member' || $post_type == 'family_group')) {
-wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.4.1');
-wp_enqueue_script('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.4.1', true);
+wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.4.3');
+wp_enqueue_script('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.4.3', true);
 // Передача данных в скрипт
 wp_localize_script('family-tree-admin', 'familyTreeAdmin', array(
 'ajaxurl' => admin_url('admin-ajax.php'),
@@ -1757,9 +2589,11 @@ wp_localize_script('family-tree-admin', 'familyTreeAdmin', array(
 ));
 }
 // Загружаем стили и скрипты для страницы настроек
-if ($hook == 'family_member_page_family-tree-settings') {
-wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.4.1');
-wp_enqueue_script('family-tree-settings', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), '1.4.1', true);
+if ($is_ft_settings) {
+wp_enqueue_style('family-tree-admin', FAMILY_TREE_PLUGIN_URL . 'assets/css/admin.css', array(), '1.4.3');
+wp_enqueue_style('wp-color-picker');
+wp_enqueue_media();
+wp_enqueue_script('family-tree-settings', FAMILY_TREE_PLUGIN_URL . 'assets/js/admin.js', array('jquery', 'wp-color-picker'), '1.4.3', true);
 wp_localize_script('family-tree-settings', 'familyTreeAdmin', array(
 'ajaxurl' => admin_url('admin-ajax.php'),
 'nonce' => wp_create_nonce('family_tree_license_nonce')
@@ -1772,6 +2606,11 @@ add_theme_support('post-thumbnails');
 public function load_family_member_template($template) {
 if (is_singular('family_member')) {
 $plugin_template = FAMILY_TREE_PLUGIN_DIR . 'templates/single-family_member.php';
+if (file_exists($plugin_template)) {
+return $plugin_template;
+}
+} elseif (is_post_type_archive('family_member')) {
+$plugin_template = FAMILY_TREE_PLUGIN_DIR . 'templates/archive-family_member.php';
 if (file_exists($plugin_template)) {
 return $plugin_template;
 }
@@ -2335,12 +3174,8 @@ if (isset($_POST['family_tree_save_settings']) && isset($_POST['family_tree_sett
 $old_license_key = get_option('family_tree_license_key', '');
 if (empty($new_license_key)) {
 // Деактивация
-update_option('family_tree_license_key', '');
-update_option('family_tree_is_pro', false);
-delete_option('family_tree_license_data');
-delete_option('family_tree_license_tier');
-delete_option('family_tree_has_gedcom');
-delete_option('family_tree_is_lifetime');
+delete_option('family_tree_license_key');
+$this->force_free();
 if (!empty($old_license_key)) {
 $this->send_activation_data($old_license_key, false);
 }
@@ -2362,28 +3197,1414 @@ $this->send_activation_data($new_license_key, false);
 }
 }
 }
+// Список допустимых гарнитур (системные + Google Fonts) — используется при сохранении шрифтов персоналий и каталога
+$allowed_fonts = array_merge(array('Open Sans', 'Roboto Slab', 'Georgia', 'Times New Roman', 'Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New'), array_keys(self::get_google_fonts()));
+// Обработка сохранения настроек отображения (таб «Отображение древа»)
+if (isset($_POST['family_tree_save_display_settings']) && isset($_POST['family_tree_settings_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['family_tree_settings_nonce'])), 'family_tree_save_settings')) {
+    $bg_color = isset($_POST['family_tree_bg_color']) ? $this->sanitize_tree_color(family_tree_sanitize_str($_POST['family_tree_bg_color'])) : '';
+    $bg_image = isset($_POST['family_tree_bg_image']) ? esc_url_raw(family_tree_sanitize_str($_POST['family_tree_bg_image'])) : '';
+    $border_radius = isset($_POST['family_tree_border_radius']) ? $this->sanitize_css_size($_POST['family_tree_border_radius']) : '';
+    $tree_width = isset($_POST['family_tree_width']) ? $this->sanitize_css_size($_POST['family_tree_width']) : '';
+    $tree_height = isset($_POST['family_tree_height']) ? $this->sanitize_css_size($_POST['family_tree_height']) : '';
+    $card_color = isset($_POST['family_tree_card_color']) ? $this->sanitize_tree_color($_POST['family_tree_card_color']) : '';
+    $male_color = isset($_POST['family_tree_male_color']) ? $this->sanitize_tree_color($_POST['family_tree_male_color']) : '';
+    $female_color = isset($_POST['family_tree_female_color']) ? $this->sanitize_tree_color($_POST['family_tree_female_color']) : '';
+    $text_color = isset($_POST['family_tree_text_color']) ? $this->sanitize_tree_color($_POST['family_tree_text_color']) : '';
+    $text_color_hover = isset($_POST['family_tree_text_color_hover']) ? $this->sanitize_tree_color($_POST['family_tree_text_color_hover']) : '';
+    $card_width = isset($_POST['family_tree_card_width']) ? $this->sanitize_tree_int($_POST['family_tree_card_width']) : 220;
+    $card_height = isset($_POST['family_tree_card_height']) ? $this->sanitize_tree_int($_POST['family_tree_card_height']) : 100;
+    $name_font_raw = isset($_POST['family_tree_name_font_family']) ? family_tree_sanitize_str($_POST['family_tree_name_font_family']) : '';
+    $name_font_family = in_array($name_font_raw, $allowed_fonts, true) ? $name_font_raw : '';
+    $name_font_size = isset($_POST['family_tree_name_font_size']) ? intval($_POST['family_tree_name_font_size']) : 0;
+    $name_font_size = max(0, min(96, $name_font_size));
+    $name_font_weight = isset($_POST['family_tree_name_font_weight']) ? intval($_POST['family_tree_name_font_weight']) : 0;
+    $name_font_weight = in_array($name_font_weight, self::get_font_weights($name_font_family), true) ? $name_font_weight : 0;
+    $date_font_raw = isset($_POST['family_tree_date_font_family']) ? family_tree_sanitize_str($_POST['family_tree_date_font_family']) : '';
+    $date_font_family = in_array($date_font_raw, $allowed_fonts, true) ? $date_font_raw : '';
+    $date_font_size = isset($_POST['family_tree_date_font_size']) ? intval($_POST['family_tree_date_font_size']) : 0;
+    $date_font_size = max(0, min(96, $date_font_size));
+    $date_font_weight = isset($_POST['family_tree_date_font_weight']) ? intval($_POST['family_tree_date_font_weight']) : 0;
+    $date_font_weight = in_array($date_font_weight, self::get_font_weights($date_font_family), true) ? $date_font_weight : 0;
+    $male_placeholder_data = isset($_POST['family_tree_male_placeholder']) ? $this->sanitize_placeholder_image($_POST['family_tree_male_placeholder']) : array('url' => '', 'valid' => true, 'message' => '');
+    $female_placeholder_data = isset($_POST['family_tree_female_placeholder']) ? $this->sanitize_placeholder_image($_POST['family_tree_female_placeholder']) : array('url' => '', 'valid' => true, 'message' => '');
+$disable_wheel_zoom = isset($_POST['family_tree_disable_wheel_zoom']) ? 1 : 0;
+$toolbar_btn_bg = isset($_POST['family_tree_toolbar_btn_bg']) ? $this->sanitize_tree_color($_POST['family_tree_toolbar_btn_bg']) : '';
+$toolbar_btn_bg_hover = isset($_POST['family_tree_toolbar_btn_bg_hover']) ? $this->sanitize_tree_color($_POST['family_tree_toolbar_btn_bg_hover']) : '';
+$toolbar_icon_color = isset($_POST['family_tree_toolbar_icon_color']) ? $this->sanitize_tree_color($_POST['family_tree_toolbar_icon_color']) : '';
+$toolbar_icon_color_hover = isset($_POST['family_tree_toolbar_icon_color_hover']) ? $this->sanitize_tree_color($_POST['family_tree_toolbar_icon_color_hover']) : '';
+$toolbar_position_raw = isset($_POST['family_tree_toolbar_position']) ? family_tree_sanitize_str($_POST['family_tree_toolbar_position']) : 'bottom-right';
+$allowed_positions = array('top-left', 'top-right', 'bottom-right', 'bottom-left');
+$toolbar_position = in_array($toolbar_position_raw, $allowed_positions, true) ? $toolbar_position_raw : 'bottom-right';
+    update_option('family_tree_bg_color', $bg_color);
+    update_option('family_tree_bg_image', $bg_image);
+    update_option('family_tree_border_radius', $border_radius);
+    update_option('family_tree_width', $tree_width);
+    update_option('family_tree_height', $tree_height);
+    update_option('family_tree_card_color', $card_color);
+    update_option('family_tree_male_color', $male_color);
+    update_option('family_tree_female_color', $female_color);
+    update_option('family_tree_text_color', $text_color);
+    update_option('family_tree_text_color_hover', $text_color_hover);
+    update_option('family_tree_card_width', $card_width);
+    update_option('family_tree_card_height', $card_height);
+    update_option('family_tree_name_font_family', $name_font_family);
+    update_option('family_tree_name_font_size', $name_font_size);
+    update_option('family_tree_name_font_weight', $name_font_weight);
+    update_option('family_tree_date_font_family', $date_font_family);
+    update_option('family_tree_date_font_size', $date_font_size);
+    update_option('family_tree_date_font_weight', $date_font_weight);
+    if ($male_placeholder_data['valid']) {
+        update_option('family_tree_male_placeholder', $male_placeholder_data['url']);
+    }
+    if ($female_placeholder_data['valid']) {
+        update_option('family_tree_female_placeholder', $female_placeholder_data['url']);
+    }
+    update_option('family_tree_disable_wheel_zoom', $disable_wheel_zoom);
+    update_option('family_tree_toolbar_btn_bg', $toolbar_btn_bg);
+    update_option('family_tree_toolbar_btn_bg_hover', $toolbar_btn_bg_hover);
+    update_option('family_tree_toolbar_icon_color', $toolbar_icon_color);
+    update_option('family_tree_toolbar_icon_color_hover', $toolbar_icon_color_hover);
+    update_option('family_tree_toolbar_position', $toolbar_position);
+    if (!$male_placeholder_data['valid'] || !$female_placeholder_data['valid']) {
+        $placeholder_errors = array();
+        if (!$male_placeholder_data['valid']) {
+            $placeholder_errors[] = esc_html__('мужская', 'genius-family-tree') . ': ' . $male_placeholder_data['message'];
+        }
+        if (!$female_placeholder_data['valid']) {
+            $placeholder_errors[] = esc_html__('женская', 'genius-family-tree') . ': ' . $female_placeholder_data['message'];
+        }
+        $message = esc_html__('Заглушки фото не сохранены: ', 'genius-family-tree') . implode('; ', $placeholder_errors);
+        $message_type = 'error';
+    } else {
+        $message = esc_html__('Настройки отображения сохранены', 'genius-family-tree');
+        $message_type = 'updated';
+    }
+}
+// Обработка сохранения оформления персоналий (таб «Оформление персоналий»)
+if (isset($_POST['family_tree_save_person_styles']) && isset($_POST['family_tree_settings_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['family_tree_settings_nonce'])), 'family_tree_save_settings')) {
+    $person_bg = isset($_POST['family_tree_person_bg']) ? $this->sanitize_tree_color($_POST['family_tree_person_bg']) : '';
+    $person_header = isset($_POST['family_tree_person_header']) ? $this->sanitize_tree_color($_POST['family_tree_person_header']) : '';
+    $person_tree_button = isset($_POST['family_tree_person_tree_button']) ? $this->sanitize_tree_color($_POST['family_tree_person_tree_button']) : '';
+    $person_tree_button_text_color = isset($_POST['family_tree_person_tree_button_text_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_tree_button_text_color']) : '';
+    $person_tree_button_font_raw = isset($_POST['family_tree_person_tree_button_font_family']) ? family_tree_sanitize_str($_POST['family_tree_person_tree_button_font_family']) : '';
+    $person_tree_button_font_family = in_array($person_tree_button_font_raw, $allowed_fonts, true) ? $person_tree_button_font_raw : '';
+    $person_tree_button_font_size = isset($_POST['family_tree_person_tree_button_font_size']) ? intval($_POST['family_tree_person_tree_button_font_size']) : 0;
+    $person_tree_button_font_size = max(0, min(96, $person_tree_button_font_size));
+    $person_tree_button_font_weight = isset($_POST['family_tree_person_tree_button_font_weight']) ? intval($_POST['family_tree_person_tree_button_font_weight']) : 0;
+    $person_tree_button_font_weight = in_array($person_tree_button_font_weight, self::get_font_weights($person_tree_button_font_family), true) ? $person_tree_button_font_weight : 0;
+    $person_link = isset($_POST['family_tree_person_link']) ? $this->sanitize_tree_color($_POST['family_tree_person_link']) : '';
+    $person_content_bg = isset($_POST['family_tree_person_content_bg']) ? $this->sanitize_tree_color($_POST['family_tree_person_content_bg']) : '';
+    $person_sidebar_bg = isset($_POST['family_tree_person_sidebar_bg']) ? $this->sanitize_tree_color($_POST['family_tree_person_sidebar_bg']) : '';
+    $person_header_radius = isset($_POST['family_tree_person_header_radius']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_header_radius']) : 0;
+    $person_header_border_width = isset($_POST['family_tree_person_header_border_width']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_header_border_width'], 0, 50, 0) : 0;
+    $person_header_border_style = isset($_POST['family_tree_person_header_border_style']) ? $this->sanitize_border_style($_POST['family_tree_person_header_border_style']) : '';
+    $person_header_border_color = isset($_POST['family_tree_person_header_border_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_header_border_color']) : '';
+    $person_header_font_raw = isset($_POST['family_tree_person_header_font_family']) ? family_tree_sanitize_str($_POST['family_tree_person_header_font_family']) : '';
+    $person_header_font_family = in_array($person_header_font_raw, $allowed_fonts, true) ? $person_header_font_raw : '';
+    $person_header_font_size = isset($_POST['family_tree_person_header_font_size']) ? intval($_POST['family_tree_person_header_font_size']) : 0;
+    $person_header_font_size = max(0, min(96, $person_header_font_size));
+    $person_header_title_color = isset($_POST['family_tree_person_header_title_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_header_title_color']) : '';
+    $person_header_font_weight = isset($_POST['family_tree_person_header_font_weight']) ? intval($_POST['family_tree_person_header_font_weight']) : 0;
+    $person_header_font_weight = in_array($person_header_font_weight, self::get_font_weights($person_header_font_family), true) ? $person_header_font_weight : 0;
+    $person_content_radius = isset($_POST['family_tree_person_content_radius']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_content_radius']) : 0;
+    $person_content_border_width = isset($_POST['family_tree_person_content_border_width']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_content_border_width'], 0, 50, 0) : 0;
+    $person_content_border_style = isset($_POST['family_tree_person_content_border_style']) ? $this->sanitize_border_style($_POST['family_tree_person_content_border_style']) : '';
+    $person_content_border_color = isset($_POST['family_tree_person_content_border_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_content_border_color']) : '';
+    $person_sidebar_radius = isset($_POST['family_tree_person_sidebar_radius']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_sidebar_radius']) : 0;
+    $person_sidebar_border_width = isset($_POST['family_tree_person_sidebar_border_width']) ? $this->sanitize_tree_dimension($_POST['family_tree_person_sidebar_border_width'], 0, 50, 0) : 0;
+    $person_sidebar_border_style = isset($_POST['family_tree_person_sidebar_border_style']) ? $this->sanitize_border_style($_POST['family_tree_person_sidebar_border_style']) : '';
+    $person_sidebar_border_color = isset($_POST['family_tree_person_sidebar_border_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_sidebar_border_color']) : '';
+    $person_header_font_size_tablet = isset($_POST['family_tree_person_header_font_size_tablet']) ? intval($_POST['family_tree_person_header_font_size_tablet']) : 0;
+    $person_header_font_size_tablet = max(0, min(96, $person_header_font_size_tablet));
+    $person_header_font_size_mobile = isset($_POST['family_tree_person_header_font_size_mobile']) ? intval($_POST['family_tree_person_header_font_size_mobile']) : 0;
+    $person_header_font_size_mobile = max(0, min(96, $person_header_font_size_mobile));
+    $person_sidebar_text_color = isset($_POST['family_tree_person_sidebar_text_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_sidebar_text_color']) : '';
+    $person_sidebar_text_font_raw = isset($_POST['family_tree_person_sidebar_text_font_family']) ? family_tree_sanitize_str($_POST['family_tree_person_sidebar_text_font_family']) : '';
+    $person_sidebar_text_font_family = in_array($person_sidebar_text_font_raw, $allowed_fonts, true) ? $person_sidebar_text_font_raw : '';
+    $person_sidebar_text_font_size = isset($_POST['family_tree_person_sidebar_text_font_size']) ? intval($_POST['family_tree_person_sidebar_text_font_size']) : 0;
+    $person_sidebar_text_font_size = max(0, min(96, $person_sidebar_text_font_size));
+    $person_sidebar_text_font_weight = isset($_POST['family_tree_person_sidebar_text_font_weight']) ? intval($_POST['family_tree_person_sidebar_text_font_weight']) : 0;
+    $person_sidebar_text_font_weight = in_array($person_sidebar_text_font_weight, self::get_font_weights($person_sidebar_text_font_family), true) ? $person_sidebar_text_font_weight : 0;
+    $person_sidebar_heading_color = isset($_POST['family_tree_person_sidebar_heading_color']) ? $this->sanitize_tree_color($_POST['family_tree_person_sidebar_heading_color']) : '';
+    $person_sidebar_heading_font_raw = isset($_POST['family_tree_person_sidebar_heading_font_family']) ? family_tree_sanitize_str($_POST['family_tree_person_sidebar_heading_font_family']) : '';
+    $person_sidebar_heading_font_family = in_array($person_sidebar_heading_font_raw, $allowed_fonts, true) ? $person_sidebar_heading_font_raw : '';
+    $person_sidebar_heading_font_size = isset($_POST['family_tree_person_sidebar_heading_font_size']) ? intval($_POST['family_tree_person_sidebar_heading_font_size']) : 0;
+    $person_sidebar_heading_font_size = max(0, min(96, $person_sidebar_heading_font_size));
+    $person_sidebar_heading_font_weight = isset($_POST['family_tree_person_sidebar_heading_font_weight']) ? intval($_POST['family_tree_person_sidebar_heading_font_weight']) : 0;
+    $person_sidebar_heading_font_weight = in_array($person_sidebar_heading_font_weight, self::get_font_weights($person_sidebar_heading_font_family), true) ? $person_sidebar_heading_font_weight : 0;
+    update_option('family_tree_person_bg', $person_bg);
+    update_option('family_tree_person_header', $person_header);
+    update_option('family_tree_person_tree_button', $person_tree_button);
+    update_option('family_tree_person_tree_button_text_color', $person_tree_button_text_color);
+    update_option('family_tree_person_tree_button_font_family', $person_tree_button_font_family);
+    update_option('family_tree_person_tree_button_font_size', $person_tree_button_font_size);
+    update_option('family_tree_person_tree_button_font_weight', $person_tree_button_font_weight);
+    update_option('family_tree_person_link', $person_link);
+    update_option('family_tree_person_content_bg', $person_content_bg);
+    update_option('family_tree_person_sidebar_bg', $person_sidebar_bg);
+    update_option('family_tree_person_header_radius', $person_header_radius);
+    update_option('family_tree_person_header_border_width', $person_header_border_width);
+    update_option('family_tree_person_header_border_style', $person_header_border_style);
+    update_option('family_tree_person_header_border_color', $person_header_border_color);
+    update_option('family_tree_person_header_font_family', $person_header_font_family);
+    update_option('family_tree_person_header_font_size', $person_header_font_size);
+    update_option('family_tree_person_header_title_color', $person_header_title_color);
+    update_option('family_tree_person_header_font_weight', $person_header_font_weight);
+    update_option('family_tree_person_content_radius', $person_content_radius);
+    update_option('family_tree_person_content_border_width', $person_content_border_width);
+    update_option('family_tree_person_content_border_style', $person_content_border_style);
+    update_option('family_tree_person_content_border_color', $person_content_border_color);
+    update_option('family_tree_person_sidebar_radius', $person_sidebar_radius);
+    update_option('family_tree_person_sidebar_border_width', $person_sidebar_border_width);
+    update_option('family_tree_person_sidebar_border_style', $person_sidebar_border_style);
+    update_option('family_tree_person_sidebar_border_color', $person_sidebar_border_color);
+    update_option('family_tree_person_header_font_size_tablet', $person_header_font_size_tablet);
+    update_option('family_tree_person_header_font_size_mobile', $person_header_font_size_mobile);
+    update_option('family_tree_person_sidebar_text_color', $person_sidebar_text_color);
+    update_option('family_tree_person_sidebar_text_font_family', $person_sidebar_text_font_family);
+    update_option('family_tree_person_sidebar_text_font_size', $person_sidebar_text_font_size);
+    update_option('family_tree_person_sidebar_text_font_weight', $person_sidebar_text_font_weight);
+    update_option('family_tree_person_sidebar_heading_color', $person_sidebar_heading_color);
+    update_option('family_tree_person_sidebar_heading_font_family', $person_sidebar_heading_font_family);
+    update_option('family_tree_person_sidebar_heading_font_size', $person_sidebar_heading_font_size);
+    update_option('family_tree_person_sidebar_heading_font_weight', $person_sidebar_heading_font_weight);
+    $message = esc_html__('Настройки оформления персоналий сохранены', 'genius-family-tree');
+    $message_type = 'updated';
+}
+// Обработка сохранения оформления каталога (таб «Оформление каталога»)
+if (isset($_POST['family_tree_save_catalog_styles']) && isset($_POST['family_tree_settings_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['family_tree_settings_nonce'])), 'family_tree_save_settings')) {
+    $catalog_page_bg = isset($_POST['family_tree_catalog_page_bg']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_page_bg']) : '';
+    $catalog_bg = isset($_POST['family_tree_catalog_bg']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_bg']) : '';
+    $catalog_letter_text_color = isset($_POST['family_tree_catalog_letter_text_color']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_letter_text_color']) : '';
+    $catalog_letter_text_active = isset($_POST['family_tree_catalog_letter_text_active']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_letter_text_active']) : '';
+    $catalog_letter_bg = isset($_POST['family_tree_catalog_letter_bg']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_letter_bg']) : '';
+    $catalog_letter_inactive_bg = isset($_POST['family_tree_catalog_letter_inactive_bg']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_letter_inactive_bg']) : '';
+    $catalog_letter_bg_hover = isset($_POST['family_tree_catalog_letter_bg_hover']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_letter_bg_hover']) : '';
+    $catalog_letter_font_raw = isset($_POST['family_tree_catalog_letter_font_family']) ? family_tree_sanitize_str($_POST['family_tree_catalog_letter_font_family']) : '';
+    $catalog_letter_font_family = in_array($catalog_letter_font_raw, $allowed_fonts, true) ? $catalog_letter_font_raw : '';
+    $catalog_letter_font_size = isset($_POST['family_tree_catalog_letter_font_size']) ? intval($_POST['family_tree_catalog_letter_font_size']) : 0;
+    $catalog_letter_font_size = max(0, min(96, $catalog_letter_font_size));
+    $catalog_letter_font_weight = isset($_POST['family_tree_catalog_letter_font_weight']) ? intval($_POST['family_tree_catalog_letter_font_weight']) : 0;
+    $catalog_letter_font_weight = in_array($catalog_letter_font_weight, self::get_font_weights($catalog_letter_font_family), true) ? $catalog_letter_font_weight : 0;
+    $catalog_title_font_raw = isset($_POST['family_tree_catalog_title_font_family']) ? family_tree_sanitize_str($_POST['family_tree_catalog_title_font_family']) : '';
+    $catalog_title_font_family = in_array($catalog_title_font_raw, $allowed_fonts, true) ? $catalog_title_font_raw : '';
+    $catalog_title_font_size = isset($_POST['family_tree_catalog_title_font_size']) ? intval($_POST['family_tree_catalog_title_font_size']) : 0;
+    $catalog_title_font_size = max(0, min(96, $catalog_title_font_size));
+    $catalog_title_font_weight = isset($_POST['family_tree_catalog_title_font_weight']) ? intval($_POST['family_tree_catalog_title_font_weight']) : 0;
+    $catalog_title_font_weight = in_array($catalog_title_font_weight, self::get_font_weights($catalog_title_font_family), true) ? $catalog_title_font_weight : 0;
+    $catalog_link_color = isset($_POST['family_tree_catalog_link_color']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_link_color']) : '';
+    $catalog_link_hover = isset($_POST['family_tree_catalog_link_hover']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_link_hover']) : '';
+    $catalog_link_font_raw = isset($_POST['family_tree_catalog_link_font_family']) ? family_tree_sanitize_str($_POST['family_tree_catalog_link_font_family']) : '';
+    $catalog_link_font_family = in_array($catalog_link_font_raw, $allowed_fonts, true) ? $catalog_link_font_raw : '';
+    $catalog_link_font_size = isset($_POST['family_tree_catalog_link_font_size']) ? intval($_POST['family_tree_catalog_link_font_size']) : 0;
+    $catalog_link_font_size = max(0, min(96, $catalog_link_font_size));
+    $catalog_link_font_weight = isset($_POST['family_tree_catalog_link_font_weight']) ? intval($_POST['family_tree_catalog_link_font_weight']) : 0;
+    $catalog_link_font_weight = in_array($catalog_link_font_weight, self::get_font_weights($catalog_link_font_family), true) ? $catalog_link_font_weight : 0;
+    $catalog_litera_color = isset($_POST['family_tree_catalog_litera_color']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_litera_color']) : '';
+    $catalog_litera_font_raw = isset($_POST['family_tree_catalog_litera_font_family']) ? family_tree_sanitize_str($_POST['family_tree_catalog_litera_font_family']) : '';
+    $catalog_litera_font_family = in_array($catalog_litera_font_raw, $allowed_fonts, true) ? $catalog_litera_font_raw : '';
+    $catalog_litera_font_size = isset($_POST['family_tree_catalog_litera_font_size']) ? intval($_POST['family_tree_catalog_litera_font_size']) : 0;
+    $catalog_litera_font_size = max(0, min(96, $catalog_litera_font_size));
+    $catalog_litera_font_weight = isset($_POST['family_tree_catalog_litera_font_weight']) ? intval($_POST['family_tree_catalog_litera_font_weight']) : 0;
+    $catalog_litera_font_weight = in_array($catalog_litera_font_weight, self::get_font_weights($catalog_litera_font_family), true) ? $catalog_litera_font_weight : 0;
+    $catalog_title_color = isset($_POST['family_tree_catalog_title_color']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_title_color']) : '';
+    $catalog_top_color = isset($_POST['family_tree_catalog_top_color']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_top_color']) : '';
+    $catalog_top_hover = isset($_POST['family_tree_catalog_top_hover']) ? $this->sanitize_tree_color($_POST['family_tree_catalog_top_hover']) : '';
+    $catalog_top_font_raw = isset($_POST['family_tree_catalog_top_font_family']) ? family_tree_sanitize_str($_POST['family_tree_catalog_top_font_family']) : '';
+    $catalog_top_font_family = in_array($catalog_top_font_raw, $allowed_fonts, true) ? $catalog_top_font_raw : '';
+    $catalog_top_font_size = isset($_POST['family_tree_catalog_top_font_size']) ? intval($_POST['family_tree_catalog_top_font_size']) : 0;
+    $catalog_top_font_size = max(0, min(96, $catalog_top_font_size));
+    $catalog_top_font_weight = isset($_POST['family_tree_catalog_top_font_weight']) ? intval($_POST['family_tree_catalog_top_font_weight']) : 0;
+    $catalog_top_font_weight = in_array($catalog_top_font_weight, self::get_font_weights($catalog_top_font_family), true) ? $catalog_top_font_weight : 0;
+    update_option('family_tree_catalog_page_bg', $catalog_page_bg);
+    update_option('family_tree_catalog_bg', $catalog_bg);
+    update_option('family_tree_catalog_letter_text_color', $catalog_letter_text_color);
+    update_option('family_tree_catalog_letter_text_active', $catalog_letter_text_active);
+    update_option('family_tree_catalog_letter_bg', $catalog_letter_bg);
+    update_option('family_tree_catalog_letter_inactive_bg', $catalog_letter_inactive_bg);
+    update_option('family_tree_catalog_letter_bg_hover', $catalog_letter_bg_hover);
+    update_option('family_tree_catalog_letter_font_family', $catalog_letter_font_family);
+    update_option('family_tree_catalog_letter_font_size', $catalog_letter_font_size);
+    update_option('family_tree_catalog_letter_font_weight', $catalog_letter_font_weight);
+    update_option('family_tree_catalog_title_font_family', $catalog_title_font_family);
+    update_option('family_tree_catalog_title_font_size', $catalog_title_font_size);
+    update_option('family_tree_catalog_title_font_weight', $catalog_title_font_weight);
+    update_option('family_tree_catalog_link_color', $catalog_link_color);
+    update_option('family_tree_catalog_link_hover', $catalog_link_hover);
+    update_option('family_tree_catalog_link_font_family', $catalog_link_font_family);
+    update_option('family_tree_catalog_link_font_size', $catalog_link_font_size);
+    update_option('family_tree_catalog_link_font_weight', $catalog_link_font_weight);
+    update_option('family_tree_catalog_litera_color', $catalog_litera_color);
+    update_option('family_tree_catalog_litera_font_family', $catalog_litera_font_family);
+    update_option('family_tree_catalog_litera_font_size', $catalog_litera_font_size);
+    update_option('family_tree_catalog_litera_font_weight', $catalog_litera_font_weight);
+    update_option('family_tree_catalog_title_color', $catalog_title_color);
+    update_option('family_tree_catalog_top_color', $catalog_top_color);
+    update_option('family_tree_catalog_top_hover', $catalog_top_hover);
+    update_option('family_tree_catalog_top_font_family', $catalog_top_font_family);
+    update_option('family_tree_catalog_top_font_size', $catalog_top_font_size);
+    update_option('family_tree_catalog_top_font_weight', $catalog_top_font_weight);
+    $message = esc_html__('Настройки каталога сохранены', 'genius-family-tree');
+    $message_type = 'updated';
+}
 // Получаем текущие
 $license_key = get_option('family_tree_license_key', '');
-$is_pro = get_option('family_tree_is_pro', false);
+$is_pro = $this->is_pro();
 $license_data = get_option('family_tree_license_data', array());
 $last_check = get_option('family_tree_license_last_check', 0);
 $license_tier = get_option('family_tree_license_tier', 'free');
-$has_gedcom = get_option('family_tree_has_gedcom', false);
-$is_lifetime = get_option('family_tree_is_lifetime', false);
+$has_gedcom = $this->has_gedcom();
+$is_lifetime = $this->is_lifetime();
 $license_status = $is_pro ? esc_html__('Активна', 'genius-family-tree') : esc_html__('Не активна', 'genius-family-tree');
 $license_status_class = $is_pro ? 'pro-active' : 'pro-inactive';
+$bg_color = get_option('family_tree_bg_color', '#f2f2f2');
+$bg_image = get_option('family_tree_bg_image', '');
+$border_radius = get_option('family_tree_border_radius', '8px');
+$tree_width = get_option('family_tree_width', '100%');
+$tree_height = get_option('family_tree_height', '60vh');
+$male_color = get_option('family_tree_male_color', '#ADD8E6');
+$female_color = get_option('family_tree_female_color', '#FFB6C1');
+$text_color = get_option('family_tree_text_color', '#3b5560');
+$text_color_hover = get_option('family_tree_text_color_hover', '#3b5560');
+$card_color = get_option('family_tree_card_color', '#ffffff');
+$card_width = get_option('family_tree_card_width', 220);
+$card_height = get_option('family_tree_card_height', 100);
+$name_font_family = get_option('family_tree_name_font_family', '');
+$name_font_size = family_tree_font_size_value('family_tree_name_font_size', 12);
+$name_font_weight = (int) get_option('family_tree_name_font_weight', 0);
+$date_font_family = get_option('family_tree_date_font_family', '');
+$date_font_size = family_tree_font_size_value('family_tree_date_font_size', 10);
+$date_font_weight = (int) get_option('family_tree_date_font_weight', 0);
+$male_placeholder = get_option('family_tree_male_placeholder', '');
+$female_placeholder = get_option('family_tree_female_placeholder', '');
+$disable_wheel_zoom = get_option('family_tree_disable_wheel_zoom', 0);
+$toolbar_btn_bg = get_option('family_tree_toolbar_btn_bg', '');
+$toolbar_btn_bg_hover = get_option('family_tree_toolbar_btn_bg_hover', '');
+$toolbar_icon_color = get_option('family_tree_toolbar_icon_color', '');
+$toolbar_icon_color_hover = get_option('family_tree_toolbar_icon_color_hover', '');
+$toolbar_position = get_option('family_tree_toolbar_position', 'bottom-right');
+$catalog_page_bg = get_option('family_tree_catalog_page_bg', '#f6f7f7');
+$catalog_bg = get_option('family_tree_catalog_bg', '#ffffff');
+$catalog_letter_text_color = get_option('family_tree_catalog_letter_text_color', '#ffffff');
+$catalog_letter_text_active = get_option('family_tree_catalog_letter_text_active', '#ffffff');
+$catalog_letter_bg = get_option('family_tree_catalog_letter_bg', '#ff7744');
+$catalog_letter_inactive_bg = get_option('family_tree_catalog_letter_inactive_bg', '#f0f0f0');
+$catalog_letter_bg_hover = get_option('family_tree_catalog_letter_bg_hover', '#e06633');
+$catalog_letter_font_family = get_option('family_tree_catalog_letter_font_family', '');
+$catalog_letter_font_size = family_tree_font_size_value('family_tree_catalog_letter_font_size', 14);
+$catalog_letter_font_weight = (int) get_option('family_tree_catalog_letter_font_weight', 0);
+$catalog_title_font_family = get_option('family_tree_catalog_title_font_family', '');
+$catalog_title_font_size = family_tree_font_size_value('family_tree_catalog_title_font_size', 18);
+$catalog_title_font_weight = (int) get_option('family_tree_catalog_title_font_weight', 0);
+$catalog_link_color = get_option('family_tree_catalog_link_color', '#ff7744');
+$catalog_link_hover = get_option('family_tree_catalog_link_hover', '#e06633');
+$catalog_link_font_family = get_option('family_tree_catalog_link_font_family', '');
+$catalog_link_font_size = family_tree_font_size_value('family_tree_catalog_link_font_size', 14);
+$catalog_link_font_weight = (int) get_option('family_tree_catalog_link_font_weight', 0);
+$catalog_litera_color = get_option('family_tree_catalog_litera_color', '#1d2327');
+$catalog_litera_font_family = get_option('family_tree_catalog_litera_font_family', '');
+$catalog_litera_font_size = family_tree_font_size_value('family_tree_catalog_litera_font_size', 18);
+$catalog_litera_font_weight = (int) get_option('family_tree_catalog_litera_font_weight', 0);
+$catalog_title_color = get_option('family_tree_catalog_title_color', '#1d2327');
+$catalog_top_color = get_option('family_tree_catalog_top_color', '#646970');
+$catalog_top_hover = get_option('family_tree_catalog_top_hover', '#2271b1');
+$catalog_top_font_family = get_option('family_tree_catalog_top_font_family', '');
+$catalog_top_font_size = family_tree_font_size_value('family_tree_catalog_top_font_size', 14);
+$catalog_top_font_weight = (int) get_option('family_tree_catalog_top_font_weight', 0);
+$person_bg = get_option('family_tree_person_bg', '#f6f7f7');
+$person_header = get_option('family_tree_person_header', '#f0f6fc');
+$person_tree_button = get_option('family_tree_person_tree_button', '#ff7744');
+$person_tree_button_text_color = get_option('family_tree_person_tree_button_text_color', '#ffffff');
+$person_tree_button_font_family = get_option('family_tree_person_tree_button_font_family', '');
+    $person_tree_button_font_size = family_tree_font_size_value('family_tree_person_tree_button_font_size', 14);
+    $person_tree_button_font_weight = (int) get_option('family_tree_person_tree_button_font_weight', 0);
+$person_link = get_option('family_tree_person_link', '#ff7744');
+$person_content_bg = get_option('family_tree_person_content_bg', '');
+$person_sidebar_bg = get_option('family_tree_person_sidebar_bg', '');
+$person_header_radius = (int) get_option('family_tree_person_header_radius', 0);
+$person_header_border_width = (int) get_option('family_tree_person_header_border_width', 0);
+$person_header_border_style = get_option('family_tree_person_header_border_style', 'solid');
+$person_header_border_color = get_option('family_tree_person_header_border_color', '');
+$person_header_font_family = get_option('family_tree_person_header_font_family', '');
+    $person_header_font_size = family_tree_font_size_value('family_tree_person_header_font_size', 32);
+    $person_header_title_color = get_option('family_tree_person_header_title_color', '#1d2327');
+    $person_header_font_weight = (int) get_option('family_tree_person_header_font_weight', 0);
+$person_content_radius = (int) get_option('family_tree_person_content_radius', 0);
+$person_content_border_width = (int) get_option('family_tree_person_content_border_width', 0);
+$person_content_border_style = get_option('family_tree_person_content_border_style', 'solid');
+$person_content_border_color = get_option('family_tree_person_content_border_color', '');
+$person_sidebar_radius = (int) get_option('family_tree_person_sidebar_radius', 0);
+$person_sidebar_border_width = (int) get_option('family_tree_person_sidebar_border_width', 0);
+$person_sidebar_border_style = get_option('family_tree_person_sidebar_border_style', 'solid');
+$person_sidebar_border_color = get_option('family_tree_person_sidebar_border_color', '');
+$person_header_font_size_tablet = family_tree_font_size_value('family_tree_person_header_font_size_tablet', 28);
+$person_header_font_size_mobile = family_tree_font_size_value('family_tree_person_header_font_size_mobile', 24);
+$person_sidebar_text_color = get_option('family_tree_person_sidebar_text_color', '');
+$person_sidebar_text_font_family = get_option('family_tree_person_sidebar_text_font_family', '');
+    $person_sidebar_text_font_size = family_tree_font_size_value('family_tree_person_sidebar_text_font_size', 16);
+    $person_sidebar_text_font_weight = (int) get_option('family_tree_person_sidebar_text_font_weight', 0);
+$person_sidebar_heading_color = get_option('family_tree_person_sidebar_heading_color', '');
+$person_sidebar_heading_font_family = get_option('family_tree_person_sidebar_heading_font_family', '');
+    $person_sidebar_heading_font_size = family_tree_font_size_value('family_tree_person_sidebar_heading_font_size', 19);
+    $person_sidebar_heading_font_weight = (int) get_option('family_tree_person_sidebar_heading_font_weight', 0);
+$ft_fonts = array(
+    'Open Sans' => 'Open Sans',
+    'Roboto Slab' => 'Roboto Slab',
+    'Georgia' => 'Georgia',
+    'Times New Roman' => 'Times New Roman',
+    'Arial' => 'Arial',
+    'Verdana' => 'Verdana',
+    'Tahoma' => 'Tahoma',
+    'Trebuchet MS' => 'Trebuchet MS',
+    'Courier New' => 'Courier New',
+);
+$ft_google_fonts = self::get_google_fonts();
+$ft_font_weights = array();
+foreach (array_merge($ft_fonts, $ft_google_fonts) as $ft_font_name => $ft_font_label) {
+    $ft_font_weights[$ft_font_name] = self::get_font_weights($ft_font_name);
+}
 ?>
 <div class="wrap ft-settings-page">
     <div class="ft-settings-header">
         <h1><?php echo esc_html__('Настройки семейного древа', 'genius-family-tree'); ?></h1>
-        <span class="ft-version-badge">v1.4.1</span>
+        <span class="ft-version-badge">v1.4.3</span>
     </div>
     <?php if (!empty($message)): ?>
     <div class="notice notice-<?php echo esc_attr($message_type); ?>"><p><?php echo wp_kses_post($message); ?></p></div>
     <?php endif; ?>
-    <div class="ft-settings-layout">
-        <div class="ft-card">
-            <div class="ft-card-header"><?php echo esc_html__('Лицензия', 'genius-family-tree'); ?></div>
+    <div class="ft-tabs-nav">
+        <button type="button" class="ft-tab-btn active" data-tab="ft-tab-tree"><?php echo esc_html__('Отображение древа', 'genius-family-tree'); ?></button>
+        <button type="button" class="ft-tab-btn" data-tab="ft-tab-persons"><?php echo esc_html__('Оформление персоналий', 'genius-family-tree'); ?></button>
+        <button type="button" class="ft-tab-btn" data-tab="ft-tab-catalog"><?php echo esc_html__('Оформление каталога', 'genius-family-tree'); ?></button>
+        <button type="button" class="ft-tab-btn" data-tab="ft-tab-license"><?php echo esc_html__('Лицензия', 'genius-family-tree'); ?></button>
+    </div>
+    <div class="ft-tab-panels">
+        <div class="ft-tab-panel active" id="ft-tab-tree">
+            <div class="ft-card">
+                <div class="ft-card-header"><?php echo esc_html__('Отображение древа', 'genius-family-tree'); ?></div>
+                <form method="post" action="">
+                    <?php wp_nonce_field('family_tree_save_settings', 'family_tree_settings_nonce'); ?>
+                    <table class="form-table">
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки контейнера', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет фона древа', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-bg-color-input" data-slider="#ft-bg-alpha-slider" data-label="#ft-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_bg_color" id="ft-bg-color-input" value="<?php echo esc_attr($bg_color); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#f2f2f2" placeholder="#f2f2f2" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-bg-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Выберите цвет фона, введите HEX-код или настройте прозрачность (ползунок альфа-канала в палитре). По умолчанию: #f2f2f2', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#f2f2f2" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f2f2f2;" title="#f2f2f2"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f5f0eb" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f5f0eb;" title="#f5f0eb"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fef3f3" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fef3f3;" title="#fef3f3"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-bg-color-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фоновое изображение', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="hidden" name="family_tree_bg_image" id="ft-bg-image-url" value="<?php echo esc_attr($bg_image); ?>" />
+                                    <button type="button" class="button" id="ft-bg-image-upload"><?php echo esc_html__('Выбрать изображение', 'genius-family-tree'); ?></button>
+                                    <button type="button" class="button ft-color-reset" id="ft-bg-image-remove" style="<?php echo empty($bg_image) ? 'display:none;' : ''; ?>"><?php echo esc_html__('Удалить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <div id="ft-bg-image-preview" style="margin-top: 10px;<?php echo empty($bg_image) ? ' display:none;' : ''; ?>">
+                                    <img src="<?php echo esc_url($bg_image); ?>" style="max-width: 300px; max-height: 150px; border: 1px solid #dcdcde; border-radius: 4px; object-fit: cover;" alt="" />
+                                </div>
+                                <p class="description"><?php echo esc_html__('Загрузите фоновое изображение для древа. Если задано изображение, оно будет приоритетнее цвета фона.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Ширина поля', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="text" name="family_tree_width" id="ft-tree-width" value="<?php echo esc_attr($tree_width); ?>" class="small-text" placeholder="100%" style="width: 120px;" />
+                                <p class="description"><?php echo esc_html__('Ширина поля древа: 100%, 900px, 80% и т.п. По умолчанию: 100%', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Высота поля', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="text" name="family_tree_height" id="ft-tree-height" value="<?php echo esc_attr($tree_height); ?>" class="small-text" placeholder="60vh" style="width: 120px;" />
+                                <p class="description"><?php echo esc_html__('Высота поля древа: 60vh, 600px, 70% и т.п. По умолчанию: 60vh', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Скругление углов', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="text" name="family_tree_border_radius" id="ft-border-radius" value="<?php echo esc_attr($border_radius); ?>" class="small-text" placeholder="8px" style="width: 120px;" />
+                                <p class="description"><?php echo esc_html__('Радиус скругления углов поля древа: 0, 8px, 20px, 50% и т.п. По умолчанию: 8px', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Запретить зум колесиком мыши', 'genius-family-tree'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="family_tree_disable_wheel_zoom" value="1" <?php checked($disable_wheel_zoom, 1); ?> />
+                                    <?php echo esc_html__('Запретить масштабирование древа колесиком мыши.', 'genius-family-tree'); ?>
+                                </label>
+                                <p class="description"><?php echo esc_html__('Если отмечено, зум колесиком мыши будет отключен. Зум кнопками +/- тулбара и перетаскивание древа продолжат работать. По умолчанию: выключено (зум колесиком разрешен).', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки тулбара', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Расположение тулбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <select name="family_tree_toolbar_position" id="ft-toolbar-position">
+                                    <option value="top-left" <?php selected($toolbar_position, 'top-left'); ?>><?php echo esc_html__('Левый верхний угол', 'genius-family-tree'); ?></option>
+                                    <option value="top-right" <?php selected($toolbar_position, 'top-right'); ?>><?php echo esc_html__('Правый верхний угол', 'genius-family-tree'); ?></option>
+                                    <option value="bottom-right" <?php selected($toolbar_position, 'bottom-right'); ?>><?php echo esc_html__('Правый нижний угол', 'genius-family-tree'); ?></option>
+                                    <option value="bottom-left" <?php selected($toolbar_position, 'bottom-left'); ?>><?php echo esc_html__('Левый нижний угол', 'genius-family-tree'); ?></option>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Выберите угол древа, в котором будет отображаться тулбар. По умолчанию: правый нижний угол.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет фона кнопок', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_toolbar_btn_bg" id="ft-toolbar-btn-bg-input" value="<?php echo esc_attr($toolbar_btn_bg); ?>" class="small-text ft-color-hex" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-toolbar-btn-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона кнопок тулбара. По умолчанию: полупрозрачный белый.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет кнопок при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_toolbar_btn_bg_hover" id="ft-toolbar-btn-bg-hover-input" value="<?php echo esc_attr($toolbar_btn_bg_hover); ?>" class="small-text ft-color-hex" data-default-color="#2271b1" placeholder="#2271b1" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-toolbar-btn-bg-hover-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона кнопок тулбара при наведении. По умолчанию: белый.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет иконок', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_toolbar_icon_color" id="ft-toolbar-icon-color-input" value="<?php echo esc_attr($toolbar_icon_color); ?>" class="small-text ft-color-hex" data-default-color="#444444" placeholder="#444444" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-toolbar-icon-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет иконок в кнопках тулбара. По умолчанию: темно-серый.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет иконок при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_toolbar_icon_color_hover" id="ft-toolbar-icon-color-hover-input" value="<?php echo esc_attr($toolbar_icon_color_hover); ?>" class="small-text ft-color-hex" data-default-color="#2271b1" placeholder="#2271b1" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-toolbar-icon-color-hover-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет иконок в кнопках тулбара при наведении. По умолчанию: синий.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки карточек', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет всех карточек', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_card_color" id="ft-card-color-input" value="<?php echo esc_attr($card_color); ?>" class="small-text ft-color-hex" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-card-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет карточек в обычном состоянии (по умолчанию белый). При наведении карточка подсвечивается цветом, заданным в настройках мужчин/женщин.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Размеры карточек', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Ширина', 'genius-family-tree'); ?>:</span>
+                                    <input type="number" name="family_tree_card_width" id="ft-card-width" value="<?php echo esc_attr($card_width); ?>" class="small-text" min="60" max="800" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <span style="font-size: 12px; color: #646970; margin-left: 10px;"><?php echo esc_html__('Высота', 'genius-family-tree'); ?>:</span>
+                                    <input type="number" name="family_tree_card_height" id="ft-card-height" value="<?php echo esc_attr($card_height); ?>" class="small-text" min="60" max="800" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Размеры карточек применяются ко всем персонам независимо от пола. По умолчанию: 220 x 100 px', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет мужских карточек', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_male_color" id="ft-male-color-input" value="<?php echo esc_attr($male_color); ?>" class="small-text ft-color-hex" data-default-color="#ADD8E6" placeholder="#ADD8E6" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-male-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона карточек мужчин. По умолчанию: #ADD8E6', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет женских карточек', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_female_color" id="ft-female-color-input" value="<?php echo esc_attr($female_color); ?>" class="small-text ft-color-hex" data-default-color="#FFB6C1" placeholder="#FFB6C1" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-female-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона карточек женщин. По умолчанию: #FFB6C1', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет текста в карточках', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_text_color" id="ft-text-color-input" value="<?php echo esc_attr($text_color); ?>" class="small-text ft-color-hex" data-default-color="#3b5560" placeholder="#3b5560" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-text-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет текста (имён и дат) внутри карточек в обычном состоянии. По умолчанию: #3b5560', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет текста при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_text_color_hover" id="ft-text-hover-color-input" value="<?php echo esc_attr($text_color_hover); ?>" class="small-text ft-color-hex" data-default-color="#3b5560" placeholder="#3b5560" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-text-hover-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет текста внутри карточек при наведении курсора. По умолчанию: #3b5560', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт имён', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_name_font_family" id="ft-name-font-family">
+                                        <option value="" <?php selected($name_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($name_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($name_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-name-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_name_font_size" id="ft-name-font-size" value="<?php echo esc_attr($name_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-name-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_name_font_weight" id="ft-name-font-weight" class="ft-font-weight-select" data-font-select="#ft-name-font-family">
+                                        <?php echo self::render_font_weight_options($name_font_family, $name_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина имён внутри карточек древа. Толщина зависит от выбранной гарнитуры. По умолчанию: Open Sans, 12px, 600.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт дат', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_date_font_family" id="ft-date-font-family">
+                                        <option value="" <?php selected($date_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($date_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($date_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-date-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_date_font_size" id="ft-date-font-size" value="<?php echo esc_attr($date_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-date-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_date_font_weight" id="ft-date-font-weight" class="ft-font-weight-select" data-font-select="#ft-date-font-family">
+                                        <?php echo self::render_font_weight_options($date_font_family, $date_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина строки дат внутри карточек древа. Толщина зависит от выбранной гарнитуры. По умолчанию: Open Sans, 10px, 600.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Заглушка фото (мужчины)', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="hidden" name="family_tree_male_placeholder" id="ft-male-placeholder-url" value="<?php echo esc_attr($male_placeholder); ?>" />
+                                    <button type="button" class="button" id="ft-male-placeholder-upload"><?php echo esc_html__('Выбрать изображение', 'genius-family-tree'); ?></button>
+                                    <button type="button" class="button ft-color-reset" id="ft-male-placeholder-remove" style="<?php echo empty($male_placeholder) ? 'display:none;' : ''; ?>"><?php echo esc_html__('Вернуть стандартную', 'genius-family-tree'); ?></button>
+                                </div>
+                                <div id="ft-male-placeholder-preview" style="margin-top: 10px;">
+                                    <img src="<?php echo esc_url(family_tree_get_placeholder('male')); ?>" alt="" style="max-width: 100px; max-height: 100px; border: 1px solid #dcdcde; border-radius: 4px; object-fit: cover;" />
+                                </div>
+                                <p class="description"><?php echo esc_html__('Заглушка для фотографий мужских карточек без фото. Форматы: JPG, PNG, SVG; квадратные (1:1), размер не более 300x300 px. Пока поле пустое — используется стандартная заглушка.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Заглушка фото (женщины)', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="hidden" name="family_tree_female_placeholder" id="ft-female-placeholder-url" value="<?php echo esc_attr($female_placeholder); ?>" />
+                                    <button type="button" class="button" id="ft-female-placeholder-upload"><?php echo esc_html__('Выбрать изображение', 'genius-family-tree'); ?></button>
+                                    <button type="button" class="button ft-color-reset" id="ft-female-placeholder-remove" style="<?php echo empty($female_placeholder) ? 'display:none;' : ''; ?>"><?php echo esc_html__('Вернуть стандартную', 'genius-family-tree'); ?></button>
+                                </div>
+                                <div id="ft-female-placeholder-preview" style="margin-top: 10px;">
+                                    <img src="<?php echo esc_url(family_tree_get_placeholder('female')); ?>" alt="" style="max-width: 100px; max-height: 100px; border: 1px solid #dcdcde; border-radius: 4px; object-fit: cover;" />
+                                </div>
+                                <p class="description"><?php echo esc_html__('Заглушка для фотографий женских карточек без фото. Форматы: JPG, PNG, SVG; квадратные (1:1), размер не более 300x300 px. Пока поле пустое — используется стандартная заглушка.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(esc_html__('Сохранить настройки отображения', 'genius-family-tree'), 'primary', 'family_tree_save_display_settings'); ?>
+                </form>
+            </div>
+        </div>
+        <div class="ft-tab-panel" id="ft-tab-persons">
+            <div class="ft-card">
+                <div class="ft-card-header"><?php echo esc_html__('Оформление персоналий', 'genius-family-tree'); ?></div>
+                <form method="post" action="">
+                    <?php wp_nonce_field('family_tree_save_settings', 'family_tree_settings_nonce'); ?>
+                    <table class="form-table">
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки контейнера', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон страницы', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-person-bg-input" data-slider="#ft-person-bg-alpha-slider" data-label="#ft-person-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_person_bg" id="ft-person-bg-input" value="<?php echo esc_attr($person_bg); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#f6f7f7" placeholder="#f6f7f7" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-person-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-person-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-person-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-person-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Выберите цвет фона страницы персоны, введите HEX-код или настройте прозрачность. По умолчанию: #f6f7f7', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#f6f7f7" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f6f7f7;" title="#f6f7f7"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fce8e6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fce8e6;" title="#fce8e6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fef3f3" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fef3f3;" title="#fef3f3"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-person-bg-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки шапки', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шапка карточки', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-person-header-input" data-slider="#ft-person-header-alpha-slider" data-label="#ft-person-header-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_person_header" id="ft-person-header-input" value="<?php echo esc_attr($person_header); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#f0f6fc" placeholder="#f0f6fc" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-person-header-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-person-header-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-person-header-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-person-header-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Выберите цвет фона шапки карточки персоны (область с именем и кнопкой), введите HEX-код или настройте прозрачность. По умолчанию: #f0f6fc', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f6fc" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f6fc;" title="#f0f6fc"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fce8e6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fce8e6;" title="#fce8e6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fef3f3" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fef3f3;" title="#fef3f3"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-person-header-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Скругление углов шапки', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_header_radius" id="ft-person-header-radius" value="<?php echo esc_attr($person_header_radius); ?>" class="small-text" min="0" max="200" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Радиус скругления углов шапки (0-200). По умолчанию: 8px', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Граница шапки', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <label for="ft-person-header-border-width"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_person_header_border_width" id="ft-person-header-border-width" value="<?php echo esc_attr($person_header_border_width); ?>" class="small-text" min="0" max="50" step="1" style="width: 70px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-person-header-border-style"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Стиль:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_person_header_border_style" id="ft-person-header-border-style">
+                                        <option value="solid" <?php selected($person_header_border_style, 'solid'); ?>><?php echo esc_html__('Сплошная', 'genius-family-tree'); ?></option>
+                                        <option value="dashed" <?php selected($person_header_border_style, 'dashed'); ?>><?php echo esc_html__('Пунктирная (dashed)', 'genius-family-tree'); ?></option>
+                                        <option value="dotted" <?php selected($person_header_border_style, 'dotted'); ?>><?php echo esc_html__('Точечная (dotted)', 'genius-family-tree'); ?></option>
+                                    </select>
+                                    <label for="ft-person-header-border-color-input"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Цвет:', 'genius-family-tree'); ?></span></label>
+                                    <input type="text" name="family_tree_person_header_border_color" id="ft-person-header-border-color-input" value="<?php echo esc_attr($person_header_border_color); ?>" class="small-text ft-color-hex" data-default-color="#dcdcde" placeholder="#dcdcde" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset ft-border-reset" data-border-group="header" id="ft-person-header-border-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Толщина, стиль линии и цвет границы шапки. Оставьте толщину 0 — границы не будет.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет заголовка', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_person_header_title_color" id="ft-person-header-title-color-input" value="<?php echo esc_attr($person_header_title_color); ?>" class="small-text ft-color-hex" data-default-color="#1d2327" placeholder="#1d2327" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-header-title-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет заголовка (Имя, Фамилия) в шапке персоны. По умолчанию: #1d2327.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт заголовка', 'genius-family-tree'); ?></th>
+                            <td>
+                                <select name="family_tree_person_header_font_family" id="ft-person-header-font-family">
+                                    <option value="" <?php selected($person_header_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                    <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_header_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_header_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <label for="ft-person-header-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                <select name="family_tree_person_header_font_weight" id="ft-person-header-font-weight" class="ft-font-weight-select" data-font-select="#ft-person-header-font-family">
+                                    <?php echo self::render_font_weight_options($person_header_font_family, $person_header_font_weight); ?>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Шрифт заголовка (Имя, Фамилия) в шапке персоны. Толщина регулируется в зависимости от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Размер заголовка', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-resp-group">
+                                    <div class="ft-resp-tabs">
+                                        <button type="button" class="ft-resp-tab active" data-resp="desktop"><?php echo esc_html__('Десктоп', 'genius-family-tree'); ?></button>
+                                        <button type="button" class="ft-resp-tab" data-resp="tablet"><?php echo esc_html__('Планшет', 'genius-family-tree'); ?></button>
+                                        <button type="button" class="ft-resp-tab" data-resp="mobile"><?php echo esc_html__('Мобильный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                    <div class="ft-resp-input" data-resp-input="desktop">
+                                        <input type="number" name="family_tree_person_header_font_size" id="ft-person-header-font-size" value="<?php echo esc_attr($person_header_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                        <span style="font-size: 12px; color: #646970;">px</span>
+                                    </div>
+                                    <div class="ft-resp-input" data-resp-input="tablet" style="display: none;">
+                                        <input type="number" name="family_tree_person_header_font_size_tablet" id="ft-person-header-font-size-tablet" value="<?php echo esc_attr($person_header_font_size_tablet); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                        <span style="font-size: 12px; color: #646970;">px</span>
+                                    </div>
+                                    <div class="ft-resp-input" data-resp-input="mobile" style="display: none;">
+                                        <input type="number" name="family_tree_person_header_font_size_mobile" id="ft-person-header-font-size-mobile" value="<?php echo esc_attr($person_header_font_size_mobile); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                        <span style="font-size: 12px; color: #646970;">px</span>
+                                    </div>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Размер заголовка (Имя, Фамилия) в шапке персоны: десктоп, планшет (до 1024px) и мобильные (до 767px). По умолчанию: 32 px (десктоп), 28 px (планшет), 24 px (мобильный).', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Кнопка «Показать в древе»', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_person_tree_button" id="ft-person-tree-button-input" value="<?php echo esc_attr($person_tree_button); ?>" class="small-text ft-color-hex" data-default-color="#ff7744" placeholder="#ff7744" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-tree-button-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                    <label for="ft-person-tree-button-text-input"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Цвет текста:', 'genius-family-tree'); ?></span></label>
+                                    <input type="text" name="family_tree_person_tree_button_text_color" id="ft-person-tree-button-text-input" value="<?php echo esc_attr($person_tree_button_text_color); ?>" class="small-text ft-color-hex" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-tree-button-text-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет кнопки «Показать в древе» в шапке персоны и цвет текста на ней. По умолчанию: фон #ff7744, текст #ffffff', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт кнопки «Показать в древе»', 'genius-family-tree'); ?></th>
+                            <td>
+                                <select name="family_tree_person_tree_button_font_family" id="ft-person-tree-button-font-family">
+                                    <option value="" <?php selected($person_tree_button_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                    <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_tree_button_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_tree_button_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <label for="ft-person-tree-button-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                <select name="family_tree_person_tree_button_font_weight" id="ft-person-tree-button-font-weight" class="ft-font-weight-select" data-font-select="#ft-person-tree-button-font-family">
+                                    <?php echo self::render_font_weight_options($person_tree_button_font_family, $person_tree_button_font_weight); ?>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Шрифт текста кнопки «Показать в древе» в шапке персоны. Толщина регулируется в зависимости от выбранной гарнитуры. Наследуется от темы, если выбрано «По умолчанию».', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Размер шрифта кнопки «Показать в древе»', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_tree_button_font_size" id="ft-person-tree-button-font-size" value="<?php echo esc_attr($person_tree_button_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Размер текста кнопки «Показать в древе» в пикселях (0-96). При 0 наследуется от темы.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки текстовой части', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон текстовой части', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-person-content-bg-input" data-slider="#ft-person-content-bg-alpha-slider" data-label="#ft-person-content-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_person_content_bg" id="ft-person-content-bg-input" value="<?php echo esc_attr($person_content_bg); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-person-content-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-person-content-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-person-content-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-person-content-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Фон текстовой части страницы персоны (blocks с биографией). По умолчанию: прозрачный', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f6f7f7" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f6f7f7;" title="#f6f7f7"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fce8e6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fce8e6;" title="#fce8e6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-person-content-bg-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Скругление углов текстовой части', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_content_radius" id="ft-person-content-radius" value="<?php echo esc_attr($person_content_radius); ?>" class="small-text" min="0" max="200" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Радиус скругления углов текстовой части (0-200).', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Граница текстовой части', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <label for="ft-person-content-border-width"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_person_content_border_width" id="ft-person-content-border-width" value="<?php echo esc_attr($person_content_border_width); ?>" class="small-text" min="0" max="50" step="1" style="width: 70px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-person-content-border-style"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Стиль:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_person_content_border_style" id="ft-person-content-border-style">
+                                        <option value="solid" <?php selected($person_content_border_style, 'solid'); ?>><?php echo esc_html__('Сплошная', 'genius-family-tree'); ?></option>
+                                        <option value="dashed" <?php selected($person_content_border_style, 'dashed'); ?>><?php echo esc_html__('Пунктирная (dashed)', 'genius-family-tree'); ?></option>
+                                        <option value="dotted" <?php selected($person_content_border_style, 'dotted'); ?>><?php echo esc_html__('Точечная (dotted)', 'genius-family-tree'); ?></option>
+                                    </select>
+                                    <label for="ft-person-content-border-color-input"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Цвет:', 'genius-family-tree'); ?></span></label>
+                                    <input type="text" name="family_tree_person_content_border_color" id="ft-person-content-border-color-input" value="<?php echo esc_attr($person_content_border_color); ?>" class="small-text ft-color-hex" data-default-color="#dcdcde" placeholder="#dcdcde" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset ft-border-reset" data-border-group="content" id="ft-person-content-border-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Толщина, стиль линии и цвет границы текстовой части. Оставьте толщину 0 — границы не будет.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки сайдбара', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-person-sidebar-bg-input" data-slider="#ft-person-sidebar-bg-alpha-slider" data-label="#ft-person-sidebar-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_person_sidebar_bg" id="ft-person-sidebar-bg-input" value="<?php echo esc_attr($person_sidebar_bg); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#f9f9f9" placeholder="#f9f9f9" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-person-sidebar-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-person-sidebar-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-person-sidebar-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-person-sidebar-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Фон сайдбара страницы персоны (блок краткой информации). По умолчанию: #f9f9f9', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#f9f9f9" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f9f9f9;" title="#f9f9f9"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fce8e6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fce8e6;" title="#fce8e6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-person-sidebar-bg-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Скругление углов сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_sidebar_radius" id="ft-person-sidebar-radius" value="<?php echo esc_attr($person_sidebar_radius); ?>" class="small-text" min="0" max="200" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Радиус скругления углов сайдбара (0-200).', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Граница сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <label for="ft-person-sidebar-border-width"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_person_sidebar_border_width" id="ft-person-sidebar-border-width" value="<?php echo esc_attr($person_sidebar_border_width); ?>" class="small-text" min="0" max="50" step="1" style="width: 70px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-person-sidebar-border-style"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Стиль:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_person_sidebar_border_style" id="ft-person-sidebar-border-style">
+                                        <option value="solid" <?php selected($person_sidebar_border_style, 'solid'); ?>><?php echo esc_html__('Сплошная', 'genius-family-tree'); ?></option>
+                                        <option value="dashed" <?php selected($person_sidebar_border_style, 'dashed'); ?>><?php echo esc_html__('Пунктирная (dashed)', 'genius-family-tree'); ?></option>
+                                        <option value="dotted" <?php selected($person_sidebar_border_style, 'dotted'); ?>><?php echo esc_html__('Точечная (dotted)', 'genius-family-tree'); ?></option>
+                                    </select>
+                                    <label for="ft-person-sidebar-border-color-input"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Цвет:', 'genius-family-tree'); ?></span></label>
+                                    <input type="text" name="family_tree_person_sidebar_border_color" id="ft-person-sidebar-border-color-input" value="<?php echo esc_attr($person_sidebar_border_color); ?>" class="small-text ft-color-hex" data-default-color="#dcdcde" placeholder="#dcdcde" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset ft-border-reset" data-border-group="sidebar" id="ft-person-sidebar-border-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Толщина, стиль линии и цвет границы сайдбара. Оставьте толщину 0 — границы не будет.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет заголовков сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_person_sidebar_heading_color" id="ft-person-sidebar-heading-color-input" value="<?php echo esc_attr($person_sidebar_heading_color); ?>" class="small-text ft-color-hex" data-default-color="#1d2327" placeholder="#1d2327" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-sidebar-heading-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет заголовков в сайдбаре (например, «Краткая информация», «Родители», «Дети»). По умолчанию: #1d2327', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт заголовков сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <select name="family_tree_person_sidebar_heading_font_family" id="ft-person-sidebar-heading-font-family">
+                                    <option value="" <?php selected($person_sidebar_heading_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                    <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_sidebar_heading_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_sidebar_heading_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <label for="ft-person-sidebar-heading-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                <select name="family_tree_person_sidebar_heading_font_weight" id="ft-person-sidebar-heading-font-weight" class="ft-font-weight-select" data-font-select="#ft-person-sidebar-heading-font-family">
+                                    <?php echo self::render_font_weight_options($person_sidebar_heading_font_family, $person_sidebar_heading_font_weight); ?>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Шрифт заголовков в сайдбаре. Толщина регулируется в зависимости от выбранной гарнитуры. Наследуется от темы, если выбрано «По умолчанию».', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Размер заголовков сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_sidebar_heading_font_size" id="ft-person-sidebar-heading-font-size" value="<?php echo esc_attr($person_sidebar_heading_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Размер заголовков в сайдбаре (например, «Краткая информация», «Родители», «Дети»). При 0 наследуется от темы.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет текста сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_person_sidebar_text_color" id="ft-person-sidebar-text-color-input" value="<?php echo esc_attr($person_sidebar_text_color); ?>" class="small-text ft-color-hex" data-default-color="#1d2327" placeholder="#1d2327" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-sidebar-text-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет текста внутри сайдбара (краткая информация, таблица, списки родственников). Это только сайдбар, не текстовая часть страницы. По умолчанию: #1d2327', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт текста сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <select name="family_tree_person_sidebar_text_font_family" id="ft-person-sidebar-text-font-family">
+                                    <option value="" <?php selected($person_sidebar_text_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                    <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_sidebar_text_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                        <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                        <option value="<?php echo esc_attr($font_value); ?>" <?php selected($person_sidebar_text_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <label for="ft-person-sidebar-text-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                <select name="family_tree_person_sidebar_text_font_weight" id="ft-person-sidebar-text-font-weight" class="ft-font-weight-select" data-font-select="#ft-person-sidebar-text-font-family">
+                                    <?php echo self::render_font_weight_options($person_sidebar_text_font_family, $person_sidebar_text_font_weight); ?>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Шрифт обычного текста сайдбара (не заголовков). Толщина регулируется в зависимости от выбранной гарнитуры. Наследуется от темы, если выбрано «По умолчанию».', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Размер текста сайдбара', 'genius-family-tree'); ?></th>
+                            <td>
+                                <input type="number" name="family_tree_person_sidebar_text_font_size" id="ft-person-sidebar-text-font-size" value="<?php echo esc_attr($person_sidebar_text_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                <span style="font-size: 12px; color: #646970;">px</span>
+                                <p class="description"><?php echo esc_html__('Размер обычного текста сайдбара (не заголовков) в пикселях (0-96). При 0 наследуется от темы.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Ссылки в сайдбаре', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_person_link" id="ft-person-link-input" value="<?php echo esc_attr($person_link); ?>" class="small-text ft-color-hex" data-default-color="#ff7744" placeholder="#ff7744" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-person-link-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет ссылок в сайдбаре (родители, братья/сёстры, супруги, дети). По умолчанию: #ff7744', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(esc_html__('Сохранить оформление персоналий', 'genius-family-tree'), 'primary', 'family_tree_save_person_styles'); ?>
+                </form>
+            </div>
+        </div>
+        <div class="ft-tab-panel" id="ft-tab-catalog">
+            <div class="ft-card">
+                <div class="ft-card-header"><?php echo esc_html__('Оформление каталога', 'genius-family-tree'); ?></div>
+                <form method="post" action="">
+                    <?php wp_nonce_field('family_tree_save_settings', 'family_tree_settings_nonce'); ?>
+                    <table class="form-table">
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки контейнера', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон каталога', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-catalog-page-bg-input" data-slider="#ft-catalog-page-bg-alpha-slider" data-label="#ft-catalog-page-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_catalog_page_bg" id="ft-catalog-page-bg-input" value="<?php echo esc_attr($catalog_page_bg); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#f6f7f7" placeholder="#f6f7f7" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-catalog-page-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-catalog-page-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-catalog-page-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-catalog-page-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Цвет фона всей страницы каталога. Выберите цвет, введите HEX-код или настройте прозрачность. По умолчанию: #f6f7f7', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#f6f7f7" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f6f7f7;" title="#f6f7f7"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fffbe6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fffbe6;" title="#fffbe6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fef3f3" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fef3f3;" title="#fef3f3"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-catalog-page-bg-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон блоков каталога', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div class="ft-alpha-color-group" data-input="#ft-catalog-bg-input" data-slider="#ft-catalog-bg-alpha-slider" data-label="#ft-catalog-bg-alpha-value" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <input type="text" name="family_tree_catalog_bg" id="ft-catalog-bg-input" value="<?php echo esc_attr($catalog_bg); ?>" class="small-text ft-color-hex ft-alpha-input" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                        <button type="button" class="button ft-color-reset" id="ft-catalog-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                        <label for="ft-catalog-bg-alpha-slider" style="font-size: 12px; color: #646970; margin-left: 6px;"><?php echo esc_html__('Прозрачность:', 'genius-family-tree'); ?></label>
+                                        <input type="range" id="ft-catalog-bg-alpha-slider" min="0" max="100" value="100" style="width: 120px; vertical-align: middle;" />
+                                        <span id="ft-catalog-bg-alpha-value" style="font-size: 12px; color: #646970; min-width: 38px; display: inline-block;">100%</span>
+                                    </div>
+                                    <p class="description"><?php echo esc_html__('Выберите цвет фона блоков каталога, введите HEX-код или настройте прозрачность. По умолчанию: #ffffff', 'genius-family-tree'); ?></p>
+                                    <div class="ft-color-presets" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 12px; color: #646970; margin-right: 2px;"><?php echo esc_html__('Быстрый выбор:', 'genius-family-tree'); ?></span>
+                                        <button type="button" class="ft-color-preset" data-color="#ffffff" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f6f7f7" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f6f7f7;" title="#f6f7f7"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#e8f0fe" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#e8f0fe;" title="#e8f0fe"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0f4f8" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0f4f8;" title="#f0f4f8"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fdf6ec" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fdf6ec;" title="#fdf6ec"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fffbe6" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fffbe6;" title="#fffbe6"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#fef3f3" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#fef3f3;" title="#fef3f3"></button>
+                                        <button type="button" class="ft-color-preset" data-color="#f0faf0" style="width:28px;height:28px;border-radius:50%;border:2px solid #ccc;cursor:pointer;background:#f0faf0;" title="#f0faf0"></button>
+                                        <button type="button" class="button button-small ft-color-transparent" id="ft-catalog-bg-transparent"><?php echo esc_html__('Прозрачный', 'genius-family-tree'); ?></button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройки алфавита', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт букв алфавита', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_catalog_letter_font_family" id="ft-catalog-letter-font-family">
+                                        <option value="" <?php selected($catalog_letter_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_letter_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_letter_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-catalog-letter-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_catalog_letter_font_size" id="ft-catalog-letter-font-size" value="<?php echo esc_attr($catalog_letter_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-catalog-letter-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_catalog_letter_font_weight" id="ft-catalog-letter-font-weight" class="ft-font-weight-select" data-font-select="#ft-catalog-letter-font-family">
+                                        <?php echo self::render_font_weight_options($catalog_letter_font_family, $catalog_letter_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина букв алфавита в каталоге. Толщина зависит от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет букв алфавита', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_letter_text_color" id="ft-catalog-letter-text-input" value="<?php echo esc_attr($catalog_letter_text_color); ?>" class="small-text ft-color-hex" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-letter-text-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет текста букв алфавита, по которым нет записей. Цвет активных букв настраивается отдельно. По умолчанию: #ffffff', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет активных букв алфавита', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_letter_text_active" id="ft-catalog-letter-text-active-input" value="<?php echo esc_attr($catalog_letter_text_active); ?>" class="small-text ft-color-hex" data-default-color="#ffffff" placeholder="#ffffff" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-letter-text-active-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет текста задействованных (активных) букв алфавита, по которым есть записи. Применяется постоянно, а не при наведении. По умолчанию: #ffffff', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон букв алфавита', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_letter_inactive_bg" id="ft-catalog-letter-inactive-bg-input" value="<?php echo esc_attr($catalog_letter_inactive_bg); ?>" class="small-text ft-color-hex" data-default-color="#f0f0f0" placeholder="#f0f0f0" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-letter-inactive-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона букв алфавита, по которым нет записей. По умолчанию: #f0f0f0', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон активных букв алфавита', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_letter_bg" id="ft-catalog-letter-bg-input" value="<?php echo esc_attr($catalog_letter_bg); ?>" class="small-text ft-color-hex" data-default-color="#ff7744" placeholder="#ff7744" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-letter-bg-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона активных букв алфавита. По умолчанию: #ff7744', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Фон активных букв алфавита при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_letter_bg_hover" id="ft-catalog-letter-bg-hover-input" value="<?php echo esc_attr($catalog_letter_bg_hover); ?>" class="small-text ft-color-hex" data-default-color="#e06633" placeholder="#e06633" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-letter-bg-hover-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет фона активных букв алфавита при наведении. По умолчанию: #e06633', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr class="ft-section-row">
+                            <th colspan="2"><?php echo esc_html__('Настройка фамилий', 'genius-family-tree'); ?></th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт литер', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_catalog_litera_font_family" id="ft-catalog-litera-font-family">
+                                        <option value="" <?php selected($catalog_litera_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_litera_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_litera_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-catalog-litera-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_catalog_litera_font_size" id="ft-catalog-litera-font-size" value="<?php echo esc_attr($catalog_litera_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-catalog-litera-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_catalog_litera_font_weight" id="ft-catalog-litera-font-weight" class="ft-font-weight-select" data-font-select="#ft-catalog-litera-font-family">
+                                        <?php echo self::render_font_weight_options($catalog_litera_font_family, $catalog_litera_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина заголовков букв в секциях каталога (например, «Г»). Толщина зависит от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт заголовков фамилий', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_catalog_title_font_family" id="ft-catalog-title-font-family">
+                                        <option value="" <?php selected($catalog_title_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_title_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_title_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-catalog-title-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_catalog_title_font_size" id="ft-catalog-title-font-size" value="<?php echo esc_attr($catalog_title_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-catalog-title-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_catalog_title_font_weight" id="ft-catalog-title-font-weight" class="ft-font-weight-select" data-font-select="#ft-catalog-title-font-family">
+                                        <?php echo self::render_font_weight_options($catalog_title_font_family, $catalog_title_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина заголовков фамилий (например, «Иванов (3)»). Толщина зависит от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт ссылок на персоналии', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_catalog_link_font_family" id="ft-catalog-link-font-family">
+                                        <option value="" <?php selected($catalog_link_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_link_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_link_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-catalog-link-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_catalog_link_font_size" id="ft-catalog-link-font-size" value="<?php echo esc_attr($catalog_link_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-catalog-link-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_catalog_link_font_weight" id="ft-catalog-link-font-weight" class="ft-font-weight-select" data-font-select="#ft-catalog-link-font-family">
+                                        <?php echo self::render_font_weight_options($catalog_link_font_family, $catalog_link_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина ссылок на персоналии в секциях фамилий. Толщина зависит от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Шрифт кнопки «Наверх»', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select name="family_tree_catalog_top_font_family" id="ft-catalog-top-font-family">
+                                        <option value="" <?php selected($catalog_top_font_family, ''); ?>><?php echo esc_html__('По умолчанию', 'genius-family-tree'); ?></option>
+                                        <optgroup label="<?php echo esc_attr__('Системные', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_top_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="<?php echo esc_attr__('Google Fonts', 'genius-family-tree'); ?>">
+                                            <?php foreach ($ft_google_fonts as $font_value => $font_label): ?>
+                                            <option value="<?php echo esc_attr($font_value); ?>" <?php selected($catalog_top_font_family, $font_value); ?>><?php echo esc_html($font_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                    <label for="ft-catalog-top-font-size"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Размер:', 'genius-family-tree'); ?></span></label>
+                                    <input type="number" name="family_tree_catalog_top_font_size" id="ft-catalog-top-font-size" value="<?php echo esc_attr($catalog_top_font_size); ?>" class="small-text" min="10" max="96" step="1" style="width: 90px;" />
+                                    <span style="font-size: 12px; color: #646970;">px</span>
+                                    <label for="ft-catalog-top-font-weight"><span style="font-size: 12px; color: #646970;"><?php echo esc_html__('Толщина:', 'genius-family-tree'); ?></span></label>
+                                    <select name="family_tree_catalog_top_font_weight" id="ft-catalog-top-font-weight" class="ft-font-weight-select" data-font-select="#ft-catalog-top-font-family">
+                                        <?php echo self::render_font_weight_options($catalog_top_font_family, $catalog_top_font_weight); ?>
+                                    </select>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Гарнитура, размер и толщина кнопки «Наверх». Толщина зависит от выбранной гарнитуры.', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет литер', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_litera_color" id="ft-catalog-litera-color-input" value="<?php echo esc_attr($catalog_litera_color); ?>" class="small-text ft-color-hex" data-default-color="#1d2327" placeholder="#1d2327" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-litera-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет заголовков букв в секциях каталога (например, «Г»). По умолчанию: #1d2327', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет заголовков фамилий', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_title_color" id="ft-catalog-title-color-input" value="<?php echo esc_attr($catalog_title_color); ?>" class="small-text ft-color-hex" data-default-color="#1d2327" placeholder="#1d2327" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-title-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет заголовков фамилий (например, «Иванов (3)»). По умолчанию: #1d2327', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет ссылок на персоналии', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_link_color" id="ft-catalog-link-color-input" value="<?php echo esc_attr($catalog_link_color); ?>" class="small-text ft-color-hex" data-default-color="#ff7744" placeholder="#ff7744" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-link-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет ссылок на персоналии внутри секций фамилий (основная и девичья фамилии). По умолчанию: #ff7744', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет ссылок на персоналии при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_link_hover" id="ft-catalog-link-hover-input" value="<?php echo esc_attr($catalog_link_hover); ?>" class="small-text ft-color-hex" data-default-color="#e06633" placeholder="#e06633" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-link-hover-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет ссылок на персоналии при наведении. По умолчанию: #e06633', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет кнопки «Наверх»', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_top_color" id="ft-catalog-top-color-input" value="<?php echo esc_attr($catalog_top_color); ?>" class="small-text ft-color-hex" data-default-color="#646970" placeholder="#646970" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-top-color-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет кнопки «Наверх» в конце каталога. По умолчанию: #646970', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php echo esc_html__('Цвет кнопки «Наверх» при наведении', 'genius-family-tree'); ?></th>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <input type="text" name="family_tree_catalog_top_hover" id="ft-catalog-top-hover-input" value="<?php echo esc_attr($catalog_top_hover); ?>" class="small-text ft-color-hex" data-default-color="#2271b1" placeholder="#2271b1" style="width: 100px;" />
+                                    <button type="button" class="button ft-color-reset" id="ft-catalog-top-hover-reset"><?php echo esc_html__('Сбросить', 'genius-family-tree'); ?></button>
+                                </div>
+                                <p class="description"><?php echo esc_html__('Цвет кнопки «Наверх» при наведении. По умолчанию: #2271b1', 'genius-family-tree'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(esc_html__('Сохранить оформление каталога', 'genius-family-tree'), 'primary', 'family_tree_save_catalog_styles'); ?>
+                </form>
+            </div>
+        </div>
+        <div class="ft-tab-panel" id="ft-tab-license">
+            <div class="ft-card">
+                <div class="ft-card-header"><?php echo esc_html__('Лицензия', 'genius-family-tree'); ?></div>
             <form method="post" action="">
                 <?php wp_nonce_field('family_tree_save_settings', 'family_tree_settings_nonce'); ?>
                 <table class="form-table">
@@ -2430,6 +4651,12 @@ $license_status_class = $is_pro ? 'pro-active' : 'pro-inactive';
                             <button type="button" class="button button-secondary" id="deactivate-license-button"><?php echo esc_html__('Деактивировать лицензию', 'genius-family-tree'); ?></button>
                             <?php endif; ?>
                             <p class="description"><?php echo esc_html__('Pro-версия снимает ограничения на количество персоналий и добавляет экспорт в GEDCOM.', 'genius-family-tree'); ?></p>
+                            <?php if ($is_pro && !$this->integrity_ok()): ?>
+                            <p class="description" style="color:#b32d2e;"><?php echo esc_html__('Файлы плагина были изменены по сравнению с активированной версией. При следующей автоматической проверке состояние будет переподтверждено; для немедленной проверки укажите лицензионный ключ повторно.', 'genius-family-tree'); ?></p>
+                            <?php endif; ?>
+                            <?php if ($is_pro): ?>
+                            <p class="description"><?php echo esc_html__('Статус Pro автоматически перепроверяется на сервере раз в сутки.', 'genius-family-tree'); ?></p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 </table>
@@ -2528,6 +4755,7 @@ $license_status_class = $is_pro ? 'pro-active' : 'pro-inactive';
             </div>
         </div>
         <?php endif; ?>
+        </div>
     </div>
 </div>
 <style>
@@ -2699,6 +4927,104 @@ $license_status_class = $is_pro ? 'pro-active' : 'pro-inactive';
     border-top: 1px solid #f0f0f1;
     text-align: center;
 }
+.ft-color-preset {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    vertical-align: middle;
+}
+.ft-color-preset:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.2);
+}
+.ft-color-hex {
+    font-family: monospace;
+    text-transform: lowercase;
+}
+#ft-bg-image-preview img {
+    display: block;
+    width: 100%;
+}
+.ft-tabs-nav {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin: 0 0 20px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    max-width: 900px;
+}
+.ft-tab-btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #50575e;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.ft-tab-btn:hover {
+    background: #f0f6fc;
+    color: #135e96;
+}
+.ft-tab-btn.active {
+    background: #2271b1;
+    color: #fff;
+}
+.ft-tab-panels {
+    max-width: 900px;
+}
+.ft-tab-panel {
+    display: none;
+}
+.ft-tab-panel.active {
+    display: block;
+}
+.ft-resp-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ft-resp-tabs {
+    display: inline-flex;
+    border: 1px solid #c3c4c7;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+}
+.ft-resp-tabs .ft-resp-tab {
+    padding: 6px 14px;
+    border: none;
+    background: #f6f7f7;
+    color: #50575e;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ft-resp-tabs .ft-resp-tab + .ft-resp-tab {
+    border-left: 1px solid #c3c4c7;
+}
+.ft-resp-tabs .ft-resp-tab:hover {
+    background: #f0f6fc;
+    color: #135e96;
+}
+.ft-resp-tabs .ft-resp-tab.active {
+    background: #2271b1;
+    color: #fff;
+}
+.ft-section-row th {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #2271b1;
+    border-bottom: 1px solid #dcdcde;
+    padding: 24px 10px 10px 0;
+}
+.ft-section-row:first-child th {
+    padding-top: 8px;
+}
 </style>
 <script type="text/javascript">
 jQuery(document).ready(function($) {
@@ -2716,6 +5042,439 @@ jQuery(document).ready(function($) {
             } else {
                 alert('<?php echo esc_js(__('Ошибка деактивации: ', 'genius-family-tree')); ?>' + response.data);
             }
+        });
+    });
+
+    // === Фоны с прозрачностью (HEX + RGBA): древо, персоналии, каталог ===
+    function ftInitAlphaColor(inputSel, sliderSel, labelSel) {
+        var $input = $(inputSel);
+        var $slider = $(sliderSel);
+        var $label = $(labelSel);
+        if (!$input.length || !$slider.length) return null;
+        function ftToHex(r, g, b) {
+            return '#' + [r, g, b].map(function(v) {
+                var h = (+v).toString(16);
+                return h.length === 1 ? '0' + h : h;
+            }).join('');
+        }
+        function ftRgbString(r, g, b, a) {
+            if (a >= 1) return ftToHex(r, g, b);
+            a = Math.round(a * 100) / 100;
+            return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + a + ')';
+        }
+        function ftParseRgb(val) {
+            var m = val.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+            if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+            var hex = (val || '').replace('#', '');
+            if (hex.length === 3) hex = hex.split('').map(function(c) { return c + c; }).join('');
+            if (hex.length === 6) return { r: parseInt(hex.substr(0, 2), 16), g: parseInt(hex.substr(2, 2), 16), b: parseInt(hex.substr(4, 2), 16) };
+            return { r: 0, g: 0, b: 0 };
+        }
+        function ftAlphaPct() {
+            return parseInt($slider.val(), 10);
+        }
+        function ftApply() {
+            var rgb = ftParseRgb($input.val());
+            var a = ftAlphaPct() / 100;
+            $input.val(ftRgbString(rgb.r, rgb.g, rgb.b, a));
+            $label.text(ftAlphaPct() + '%');
+        }
+        function ftInit() {
+            var m = $input.val().match(/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([0-9.]+)\)$/i);
+            if (m) $slider.val(Math.round(parseFloat(m[4]) * 100));
+            $label.text($slider.val() + '%');
+        }
+        ftInit();
+        $slider.on('input change', ftApply);
+        $input.wpColorPicker({
+            defaultColor: $input.data('default-color'),
+            change: function(event, ui) {
+                if (ui.color) {
+                    var a = ftAlphaPct() / 100;
+                    $input.val(ftRgbString(ui.color.r, ui.color.g, ui.color.b, a));
+                    $label.text(ftAlphaPct() + '%');
+                } else {
+                    $input.val($input.val());
+                }
+            }
+        });
+        return {
+            setSolid: function() {
+                $slider.val(100);
+                $label.text('100%');
+            },
+            setTransparent: function() {
+                $slider.val(0);
+                $label.text('0%');
+            }
+        };
+    }
+    $('.ft-alpha-color-group').each(function() {
+        var $group = $(this);
+        var api = ftInitAlphaColor($group.data('input'), $group.data('slider'), $group.data('label'));
+        if (!api) return;
+        $group.find('.ft-color-preset').on('click', function(e) {
+            e.preventDefault();
+            api.setSolid();
+            var color = $(this).data('color');
+            $group.find('.ft-alpha-input').val(color);
+            $group.find('.ft-alpha-input').wpColorPicker('color', color);
+        });
+        $group.find('.ft-color-transparent').on('click', function(e) {
+            e.preventDefault();
+            api.setTransparent();
+            $group.find('.ft-alpha-input').val('rgba(0, 0, 0, 0)');
+        });
+        $group.find('.ft-color-reset').on('click', function(e) {
+            e.preventDefault();
+            api.setSolid();
+            var color = $group.find('.ft-alpha-input').data('default-color');
+            $group.find('.ft-alpha-input').val(color);
+            $group.find('.ft-alpha-input').wpColorPicker('color', color);
+        });
+    });
+
+    // === Настройки отображения: цвета карточек и текста ===
+    $('#ft-male-color-input, #ft-female-color-input, #ft-text-color-input, #ft-text-hover-color-input, #ft-card-color-input').each(function() {
+        var $input = $(this);
+        $input.wpColorPicker({
+            defaultColor: $input.data('default-color'),
+            change: function(event, ui) {
+                $(this).val(ui.color ? ui.color.toString() : $(this).val());
+            }
+        });
+    });
+    $('#ft-male-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-male-color-input').data('default-color');
+        $('#ft-male-color-input').val(color);
+        $('#ft-male-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-female-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-female-color-input').data('default-color');
+        $('#ft-female-color-input').val(color);
+        $('#ft-female-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-text-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-text-color-input').data('default-color');
+        $('#ft-text-color-input').val(color);
+        $('#ft-text-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-text-hover-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-text-hover-color-input').data('default-color');
+        $('#ft-text-hover-color-input').val(color);
+        $('#ft-text-hover-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-card-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-card-color-input').data('default-color');
+        $('#ft-card-color-input').val(color);
+        $('#ft-card-color-input').wpColorPicker('color', color);
+    });
+
+    // === Настройки отображения: цвета тулбара ===
+    $('#ft-toolbar-btn-bg-input, #ft-toolbar-btn-bg-hover-input, #ft-toolbar-icon-color-input, #ft-toolbar-icon-color-hover-input').each(function() {
+        var $input = $(this);
+        $input.wpColorPicker({
+            defaultColor: $input.data('default-color'),
+            change: function(event, ui) {
+                $(this).val(ui.color ? ui.color.toString() : $(this).val());
+            }
+        });
+    });
+    $('#ft-toolbar-btn-bg-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-toolbar-btn-bg-input').data('default-color');
+        $('#ft-toolbar-btn-bg-input').val(color);
+        $('#ft-toolbar-btn-bg-input').wpColorPicker('color', color);
+    });
+    $('#ft-toolbar-btn-bg-hover-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-toolbar-btn-bg-hover-input').data('default-color');
+        $('#ft-toolbar-btn-bg-hover-input').val(color);
+        $('#ft-toolbar-btn-bg-hover-input').wpColorPicker('color', color);
+    });
+    $('#ft-toolbar-icon-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-toolbar-icon-color-input').data('default-color');
+        $('#ft-toolbar-icon-color-input').val(color);
+        $('#ft-toolbar-icon-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-toolbar-icon-color-hover-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-toolbar-icon-color-hover-input').data('default-color');
+        $('#ft-toolbar-icon-color-hover-input').val(color);
+        $('#ft-toolbar-icon-color-hover-input').wpColorPicker('color', color);
+    });
+
+    // === Настройки отображения: фоновое изображение ===
+    if ($('#ft-bg-image-upload').length) {
+        var ftMediaFrame;
+        $('#ft-bg-image-upload').on('click', function(e) {
+            e.preventDefault();
+            if (ftMediaFrame) {
+                ftMediaFrame.open();
+                return;
+            }
+            ftMediaFrame = wp.media({
+                title: '<?php echo esc_js(__('Выберите фоновое изображение', 'genius-family-tree')); ?>',
+                button: { text: '<?php echo esc_js(__('Использовать это изображение', 'genius-family-tree')); ?>' },
+                multiple: false,
+                library: { type: 'image' }
+            });
+            ftMediaFrame.on('select', function() {
+                var attachment = ftMediaFrame.state().get('selection').first().toJSON();
+                var url = attachment.sizes && attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
+                $('#ft-bg-image-url').val(attachment.url);
+                $('#ft-bg-image-preview img').attr('src', url);
+                $('#ft-bg-image-preview').show();
+                $('#ft-bg-image-remove').show();
+            });
+            ftMediaFrame.open();
+        });
+
+        $('#ft-bg-image-remove').on('click', function(e) {
+            e.preventDefault();
+            $('#ft-bg-image-url').val('');
+            $('#ft-bg-image-preview').hide();
+            $(this).hide();
+        });
+    }
+
+    // === Настройки отображения: заглушки фото для карточек ===
+    function ftInitPlaceholder(uploadId, removeId, urlId, previewImgId, defaultUrl) {
+        if (!$(uploadId).length) {
+            return;
+        }
+        var frame;
+        $(uploadId).on('click', function(e) {
+            e.preventDefault();
+            if (frame) {
+                frame.open();
+                return;
+            }
+            frame = wp.media({
+                title: '<?php echo esc_js(__('Выберите изображение-заглушку', 'genius-family-tree')); ?>',
+                button: { text: '<?php echo esc_js(__('Использовать это изображение', 'genius-family-tree')); ?>' },
+                multiple: false,
+                library: { type: 'image' }
+            });
+            frame.on('select', function() {
+                var attachment = frame.state().get('selection').first().toJSON();
+                var filename = (attachment.url || '').toLowerCase();
+                var isSvg = filename.indexOf('.svg') !== -1;
+                if (!isSvg && attachment.width && attachment.height) {
+                    if (attachment.width > 300 || attachment.height > 300) {
+                        alert('<?php echo esc_js(__('Изображение должно быть не более 300x300 px.', 'genius-family-tree')); ?>');
+                        return;
+                    }
+                    if (attachment.width !== attachment.height) {
+                        alert('<?php echo esc_js(__('Изображение должно быть квадратным (1:1).', 'genius-family-tree')); ?>');
+                        return;
+                    }
+                }
+                $(urlId).val(attachment.url);
+                $(previewImgId).attr('src', attachment.url);
+                $(removeId).show();
+            });
+            frame.open();
+        });
+        $(removeId).on('click', function(e) {
+            e.preventDefault();
+            $(urlId).val('');
+            $(previewImgId).attr('src', defaultUrl);
+            $(this).hide();
+        });
+    }
+    ftInitPlaceholder('#ft-male-placeholder-upload', '#ft-male-placeholder-remove', '#ft-male-placeholder-url', '#ft-male-placeholder-preview img', '<?php echo esc_url(FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-man.svg'); ?>');
+    ftInitPlaceholder('#ft-female-placeholder-upload', '#ft-female-placeholder-remove', '#ft-female-placeholder-url', '#ft-female-placeholder-preview img', '<?php echo esc_url(FAMILY_TREE_PLUGIN_URL . 'assets/images/silhouette-woman.svg'); ?>');
+
+    // === Переключение вкладок настроек ===
+    $('.ft-tab-btn').on('click', function(e) {
+        e.preventDefault();
+        var tabId = $(this).data('tab');
+        $('.ft-tab-btn').removeClass('active');
+        $(this).addClass('active');
+        $('.ft-tab-panel').removeClass('active');
+        $('#' + tabId).addClass('active');
+    });
+
+    // === Оформление каталога: цвета ===
+    $('#ft-catalog-letter-bg-input, #ft-catalog-letter-inactive-bg-input, #ft-catalog-letter-bg-hover-input, #ft-catalog-letter-text-input, #ft-catalog-letter-text-active-input, #ft-catalog-link-color-input, #ft-catalog-link-hover-input, #ft-catalog-litera-color-input, #ft-catalog-title-color-input, #ft-catalog-top-color-input, #ft-catalog-top-hover-input').each(function() {
+        var $input = $(this);
+        $input.wpColorPicker({
+            defaultColor: $input.data('default-color'),
+            change: function(event, ui) {
+                $(this).val(ui.color ? ui.color.toString() : $(this).val());
+            }
+        });
+    });
+    $('#ft-catalog-letter-bg-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-letter-bg-input').data('default-color');
+        $('#ft-catalog-letter-bg-input').val(color);
+        $('#ft-catalog-letter-bg-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-letter-inactive-bg-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-letter-inactive-bg-input').data('default-color');
+        $('#ft-catalog-letter-inactive-bg-input').val(color);
+        $('#ft-catalog-letter-inactive-bg-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-letter-bg-hover-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-letter-bg-hover-input').data('default-color');
+        $('#ft-catalog-letter-bg-hover-input').val(color);
+        $('#ft-catalog-letter-bg-hover-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-letter-text-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-letter-text-input').data('default-color');
+        $('#ft-catalog-letter-text-input').val(color);
+        $('#ft-catalog-letter-text-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-letter-text-active-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-letter-text-active-input').data('default-color');
+        $('#ft-catalog-letter-text-active-input').val(color);
+        $('#ft-catalog-letter-text-active-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-link-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-link-color-input').data('default-color');
+        $('#ft-catalog-link-color-input').val(color);
+        $('#ft-catalog-link-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-link-hover-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-link-hover-input').data('default-color');
+        $('#ft-catalog-link-hover-input').val(color);
+        $('#ft-catalog-link-hover-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-litera-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-litera-color-input').data('default-color');
+        $('#ft-catalog-litera-color-input').val(color);
+        $('#ft-catalog-litera-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-title-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-title-color-input').data('default-color');
+        $('#ft-catalog-title-color-input').val(color);
+        $('#ft-catalog-title-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-top-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-top-color-input').data('default-color');
+        $('#ft-catalog-top-color-input').val(color);
+        $('#ft-catalog-top-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-catalog-top-hover-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-catalog-top-hover-input').data('default-color');
+        $('#ft-catalog-top-hover-input').val(color);
+        $('#ft-catalog-top-hover-input').wpColorPicker('color', color);
+    });
+
+    // === Оформление персоналий (страницы персон): цвета ===
+    $('#ft-person-tree-button-input, #ft-person-tree-button-text-input, #ft-person-link-input, #ft-person-header-title-color-input, #ft-person-header-border-color-input, #ft-person-content-border-color-input, #ft-person-sidebar-border-color-input, #ft-person-sidebar-text-color-input, #ft-person-sidebar-heading-color-input').each(function() {
+        var $input = $(this);
+        $input.wpColorPicker({
+            defaultColor: $input.data('default-color'),
+            change: function(event, ui) {
+                $(this).val(ui.color ? ui.color.toString() : $(this).val());
+            }
+        });
+    });
+    $('#ft-person-tree-button-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-tree-button-input').data('default-color');
+        $('#ft-person-tree-button-input').val(color);
+        $('#ft-person-tree-button-input').wpColorPicker('color', color);
+    });
+    $('#ft-person-tree-button-text-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-tree-button-text-input').data('default-color');
+        $('#ft-person-tree-button-text-input').val(color);
+        $('#ft-person-tree-button-text-input').wpColorPicker('color', color);
+    });
+    $('#ft-person-header-title-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-header-title-color-input').data('default-color');
+        $('#ft-person-header-title-color-input').val(color);
+        $('#ft-person-header-title-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-person-link-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-link-input').data('default-color');
+        $('#ft-person-link-input').val(color);
+        $('#ft-person-link-input').wpColorPicker('color', color);
+    });
+    $('#ft-person-sidebar-text-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-sidebar-text-color-input').data('default-color');
+        $('#ft-person-sidebar-text-color-input').val(color);
+        $('#ft-person-sidebar-text-color-input').wpColorPicker('color', color);
+    });
+    $('#ft-person-sidebar-heading-color-reset').on('click', function(e) {
+        e.preventDefault();
+        var color = $('#ft-person-sidebar-heading-color-input').data('default-color');
+        $('#ft-person-sidebar-heading-color-input').val(color);
+        $('#ft-person-sidebar-heading-color-input').wpColorPicker('color', color);
+    });
+    $('.ft-resp-group').each(function() {
+        var $group = $(this);
+        $group.find('.ft-resp-tab').on('click', function(e) {
+            e.preventDefault();
+            var key = $(this).data('resp');
+            $group.find('.ft-resp-tab').removeClass('active');
+            $(this).addClass('active');
+            $group.find('.ft-resp-input').hide();
+            $group.find('.ft-resp-input[data-resp-input="' + key + '"]').show();
+        });
+    });
+    $('.ft-border-reset').on('click', function(e) {
+        e.preventDefault();
+        var group = $(this).data('border-group');
+        $('#ft-person-' + group + '-border-width').val(0);
+        $('#ft-person-' + group + '-border-style').val('solid');
+        $('#ft-person-' + group + '-border-color-input').val('');
+    });
+    // === Толщина шрифтов: зависит от выбранной гарнитуры ===
+    var ftFontWeights = <?php echo wp_json_encode($ft_font_weights); ?>;
+    function ftPopulateWeightOptions(font, $weightSelect) {
+        var weights = ftFontWeights[font] || [400, 700];
+        var current = $weightSelect.val();
+        $weightSelect.empty();
+        $weightSelect.append($('<option>', { value: '0' }).text('<?php echo esc_js(__('По умолчанию', 'genius-family-tree')); ?>'));
+        $.each(weights, function(i, w) {
+            $weightSelect.append($('<option>', { value: String(w) }).text(String(w)));
+        });
+        if (current && current !== '0') {
+            var found = false;
+            $.each(weights, function(i, w) {
+                if (Number(current) === Number(w)) {
+                    found = true;
+                    return false;
+                }
+            });
+            if (found) {
+                $weightSelect.val(current);
+            }
+        }
+    }
+    $('.ft-font-weight-select').each(function() {
+        var $weightSelect = $(this);
+        var $fontSelect = $($weightSelect.data('font-select'));
+        if (!$fontSelect.length) {
+            return;
+        }
+        ftPopulateWeightOptions($fontSelect.val() || '', $weightSelect);
+        $fontSelect.on('change', function() {
+            ftPopulateWeightOptions($(this).val() || '', $weightSelect);
         });
     });
 });
@@ -2760,20 +5519,19 @@ if (empty($license_key)) {
 wp_send_json_error(esc_html__('Лицензия не найдена', 'genius-family-tree'));
 }
 $api_url = 'https://xn----8sbbdpda1c7cwf.xn--p1ai/wp-json/family-tree/v1/deactivate-license';
+$site_url = home_url();
+$timestamp = time();
 $response = wp_remote_post($api_url, array(
 'timeout' => 15,
 'body' => array(
 'license_key' => $license_key,
-'site_url' => home_url(),
+'site_url' => $site_url,
+'timestamp' => $timestamp,
+'signature' => hash_hmac('sha256', 'deactivate|' . $site_url . '|' . $timestamp, $license_key),
 )
 ));
 delete_option('family_tree_license_key');
-update_option('family_tree_is_pro', false);
-delete_option('family_tree_license_data');
-delete_option('family_tree_license_last_check');
-delete_option('family_tree_license_tier');
-delete_option('family_tree_has_gedcom');
-delete_option('family_tree_is_lifetime');
+$this->force_free();
 $this->send_activation_data($license_key, false);
 wp_send_json_success(esc_html__('Лицензия успешно деактивирована', 'genius-family-tree'));
 }
@@ -2788,8 +5546,8 @@ wp_die(esc_html__('Недостаточно прав', 'genius-family-tree'));
 wp_die(esc_html__('Ошибка безопасности', 'genius-family-tree'));
 }
 // Проверка доступа к GEDCOM (только у Premium)
-if (!get_option('family_tree_has_gedcom', false) || !get_option('family_tree_is_pro', false)) {
-wp_die(esc_html__('Экспорт доступен только в Premium-версии', 'genius-family-tree'));
+if (!$this->has_gedcom() || !$this->is_pro()) {
+wp_die(esc_html__('Доступно только в Premium-версии', 'genius-family-tree'));
 }
 // Получаем ID группы, если выбран
 $group_id = isset($_GET['group_id']) ? intval($_GET['group_id']) : 0;
@@ -2823,7 +5581,7 @@ $gedcom_content .= "1 CHAR UTF-8\n";
 $gedcom_content .= "1 LANG Russian\n";
 $gedcom_content .= "1 SOUR Genius Family Tree\n";
 $gedcom_content .= "2 NAME Genius Family Tree\n";
-$gedcom_content .= "2 VERS 1.4.1\n";
+$gedcom_content .= "2 VERS 1.4.3\n";
 $gedcom_content .= "1 DEST GEDCOM\n";
 $gedcom_content .= "1 DATE " . gmdate('d M Y') . "\n";
 $gedcom_content .= "1 FILE " . get_bloginfo('name') . "\n";
@@ -3139,7 +5897,7 @@ if (!wp_verify_nonce($nonce, 'family_tree_import_gedcom')) {
 wp_die(esc_html__('Ошибка безопасности', 'genius-family-tree'));
 }
 // Проверка доступа к GEDCOM (только у Premium)
-if (!get_option('family_tree_has_gedcom', false) || !get_option('family_tree_is_pro', false)) {
+if (!$this->has_gedcom() || !$this->is_pro()) {
 wp_die(esc_html__('Импорт доступен только в Premium-версии', 'genius-family-tree'));
 }
 // Получаем ID группы, если выбрана
@@ -3847,7 +6605,7 @@ $response = wp_remote_post($api_url, array(
 'body' => array(
 'license_key' => $license_key,
 'site_url' => home_url(),
-'plugin_version' => '1.4.1',
+'plugin_version' => '1.4.3',
 'wp_version' => get_bloginfo('version'),
 'php_version' => phpversion()
 )
@@ -3886,6 +6644,9 @@ update_option('family_tree_has_gedcom', $data['has_gedcom']);
 if (isset($data['is_lifetime'])) {
 update_option('family_tree_is_lifetime', $data['is_lifetime']);
 }
+// Сервер подтвердил копию: подписываем состояние и обновляем снапшот целостности.
+$this->sign_license_state();
+$this->refresh_integrity_hashes();
 $this->send_activation_data($license_key, true);
 if (!$background_check) {
 return array('success' => true, 'message' => esc_html__('Лицензия успешно активирована', 'genius-family-tree'));
@@ -3897,6 +6658,7 @@ delete_option('family_tree_license_data');
 delete_option('family_tree_license_tier');
 delete_option('family_tree_has_gedcom');
 delete_option('family_tree_is_lifetime');
+$this->sign_license_state();
 $this->send_activation_data($license_key, false);
 if (!$background_check) {
 $message = isset($data['message']) ? esc_html($data['message']) : esc_html__('Неверный лицензионный ключ', 'genius-family-tree');
@@ -3907,24 +6669,200 @@ return false;
 }
 private function send_activation_data($license_key, $is_active) {
 $api_url = 'https://xn----8sbbdpda1c7cwf.xn--p1ai/wp-json/family-tree/v1/update-license-status';
+$site_url = home_url();
+$active = $is_active ? 1 : 0;
+$timestamp = time();
 $response = wp_remote_post($api_url, array(
 'timeout' => 30,
 'body' => array(
 'license_key' => $license_key,
-'site_url' => home_url(),
-'is_active' => $is_active ? 1 : 0
+'site_url' => $site_url,
+'is_active' => $active,
+'timestamp' => $timestamp,
+'signature' => hash_hmac('sha256', 'status|' . $active . '|' . $site_url . '|' . $timestamp, $license_key),
 ),
 'headers' => array(
 'Content-Type' => 'application/json'
 )
 ));
 }
+/**
+ * Единая точка проверки Pro-статуса.
+ * Состояние лицензии хранится с HMAC-подписью: если опции править напрямую
+ * (SQL/phpMyAdmin) без переподписи, лицензия считается недействительной.
+ * Если подписи ещё нет (легаси-установка до этого обновления) — состояние
+ * допускается в работу, но ближайшая heartbeat-проверка перевалидирует ключ
+ * на сервере и либо закрепит Pro подписью, либо вернёт в Free.
+ */
+public function is_pro() {
+return $this->is_license_valid();
+}
+public function has_gedcom() {
+if (!$this->is_license_valid()) {
+return false;
+}
+return (bool) get_option('family_tree_has_gedcom', false);
+}
+public function is_lifetime() {
+if (!$this->is_license_valid()) {
+return false;
+}
+return (bool) get_option('family_tree_is_lifetime', false);
+}
+private function is_license_valid() {
+if (!$this->verify_license_signature()) {
+if ('' === get_option('family_tree_license_signature', '')) {
+return (bool) get_option('family_tree_is_pro', false);
+}
+return false;
+}
+return (bool) get_option('family_tree_is_pro', false);
+}
+/**
+ * Секрет для HMAC-подписей лицензионного состояния. Генерируется один раз
+ * и хранится в опции. Локальная подпись защищает от точечной правки опций,
+ * но не является ключом к серверу, поэтому читать/менять код можно свободно.
+ */
+public function get_license_secret() {
+$secret = get_option('family_tree_secret', '');
+if (empty($secret) || strlen($secret) < 32) {
+$secret = wp_generate_password(64, true, true);
+update_option('family_tree_secret', $secret, false);
+}
+return $secret;
+}
+private function license_payload() {
+return array(
+'is_pro' => (int) get_option('family_tree_is_pro', 0),
+'has_gedcom' => (int) get_option('family_tree_has_gedcom', 0),
+'is_lifetime' => (int) get_option('family_tree_is_lifetime', 0),
+'tier' => (string) get_option('family_tree_license_tier', 'free'),
+);
+}
+/**
+ * Пересчитывает подпись текущего состояния лицензии. Вызывается каждый раз
+ * после изменения лицензионных опций (валидация, активация, деактивация).
+ */
+public function sign_license_state() {
+update_option('family_tree_license_signature', hash_hmac('sha256', wp_json_encode($this->license_payload()), $this->get_license_secret()), false);
+}
+private function verify_license_signature() {
+$stored = get_option('family_tree_license_signature', '');
+if ('' === $stored) {
+return false;
+}
+return hash_equals($stored, hash_hmac('sha256', wp_json_encode($this->license_payload()), $this->get_license_secret()));
+}
+/**
+ * Принудительно возвращает плагин в бесплатное состояние и переподписывает его.
+ * Используется при отзыве ключа, при повторных ошибках heartbeat и при подделке.
+ */
+public function force_free() {
+update_option('family_tree_is_pro', false);
+delete_option('family_tree_license_data');
+delete_option('family_tree_license_tier');
+delete_option('family_tree_has_gedcom');
+delete_option('family_tree_is_lifetime');
+delete_option('family_tree_license_last_check');
+update_option('family_tree_license_fail_count', 0);
+$this->sign_license_state();
+}
+/**
+ * Фоновая перевалидация лицензии (хеартбит, кроном раз в сутки).
+ * Две неудачные проверки подряд — автодеградация до Free. Одиночный сбой
+ * (временная недоступность сети/сервера) лицензию не убивает.
+ */
+public function license_heartbeat() {
+$license_key = get_option('family_tree_license_key', '');
+if (empty($license_key)) {
+if ($this->is_license_valid()) {
+$this->force_free();
+}
+update_option('family_tree_license_fail_count', 0);
+return;
+}
+$result = $this->validate_license($license_key, true);
+if (true === $result) {
+$this->refresh_integrity_hashes();
+update_option('family_tree_license_fail_count', 0);
+return;
+}
+$fails = (int) get_option('family_tree_license_fail_count', 0) + 1;
+update_option('family_tree_license_fail_count', $fails);
+if ($fails >= 2) {
+$this->force_free();
+}
+}
+private function schedule_license_cron() {
+if (!wp_next_scheduled('family_tree_license_heartbeat')) {
+wp_schedule_event(time() + DAY_IN_SECONDS, 'daily', 'family_tree_license_heartbeat');
+}
+}
+
+/**
+ * Ленивая перевалидация при входе в админку — страховка от отключённого
+ * WP-Cron на площадке клиента. Если ключ есть, а последняя проверка была
+ * больше суток назад — тихо перевалидируем. Одиночный сбой сети не роняет
+ * Pro (флаг не снимается), и до следующего heartbeat сервер уже знает,
+ * что сайт жив.
+ */
+public function refresh_license_if_stale() {
+$license_key = get_option('family_tree_license_key', '');
+if (empty($license_key)) {
+return;
+}
+$last_check = (int) get_option('family_tree_license_last_check', 0);
+if ($last_check && (time() - $last_check) < DAY_IN_SECONDS) {
+return;
+}
+$this->validate_license($license_key, true);
+}
+private function clear_license_cron() {
+$timestamp = wp_next_scheduled('family_tree_license_heartbeat');
+if ($timestamp) {
+wp_unschedule_event($timestamp, 'family_tree_license_heartbeat');
+}
+}
+/**
+ * Мягкий мониторинг целостности ключевых файлов плагина.
+ * Снапшот хэшей обновляется при успешной валидации лицензии (сервер подтвердил
+ * копию). При расхождении доступ остаётся, но в админке показывается предупреждение.
+ * Для собственной разработки мешать не будет: после ближайшего heartbeat
+ * (или ручной переактивации ключа) снапшот пересчитается сам.
+ */
+private function critical_files() {
+return array(
+'genius-family-tree.php' => FAMILY_TREE_PLUGIN_DIR . 'genius-family-tree.php',
+'includes/class-family-tree-post-type.php' => FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-post-type.php',
+'includes/class-family-tree-meta-boxes.php' => FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-meta-boxes.php',
+'includes/class-family-tree-ajax.php' => FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-ajax.php',
+'includes/class-family-tree-shortcode.php' => FAMILY_TREE_PLUGIN_DIR . 'includes/class-family-tree-shortcode.php',
+);
+}
+private function compute_integrity_hash() {
+$data = '';
+foreach ($this->critical_files() as $path) {
+$hash = @md5_file($path);
+$data .= (false === $hash ? '0' : $hash) . ':';
+}
+return hash_hmac('sha256', $data, $this->get_license_secret());
+}
+private function refresh_integrity_hashes() {
+update_option('family_tree_integrity_hash', $this->compute_integrity_hash(), false);
+}
+public function integrity_ok() {
+$stored = get_option('family_tree_integrity_hash', '');
+if ('' === $stored) {
+return true;
+}
+return hash_equals($stored, $this->compute_integrity_hash());
+}
 public function check_member_limit() {
 $screen = get_current_screen();
 if (!$screen || $screen->post_type !== 'family_member') {
 return;
 }
-if (get_option('family_tree_is_pro', false)) {
+if ($this->is_pro()) {
 return;
 }
 $count = wp_count_posts('family_member');
@@ -3949,7 +6887,7 @@ return;
 if ($update) {
 return;
 }
-if (get_option('family_tree_is_pro', false)) {
+if ($this->is_pro()) {
 return;
 }
 $count = wp_count_posts('family_member');
