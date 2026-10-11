@@ -235,7 +235,6 @@
 .family-member-single {
     padding: 0 0 100px 0;
     min-height: calc(100vh - 200px);
-    background: var(--ft-bg);
 }
 
 .family-member-content {
@@ -254,14 +253,19 @@
     margin-bottom: 32px;
     padding-bottom: 24px;
     border-bottom: 1px solid #f0f0f1;
-    align-items: flex-start;
+    /* Заголовок и кнопка стоят друг под другом. align-items: stretch нужен,
+       чтобы h1 занимал всю ширину и text-align из настроек был виден;
+       кнопка переопределяет себя на align-self, чтобы не растягиваться. */
+    align-items: stretch;
     flex-direction: column;
 }
 
 .family-member-header h1 {
-    margin-top: 8px !important;
-    margin-bottom: 4px !important;
-    font-size: 2em;
+        /* !important обязателен: тема задаёт свои margin у h1, и без него
+           заголовок снова получит отступы сверху и снизу. */
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        font-size: 2em;
     font-weight: 700;
     color: var(--ft-text);
     line-height: 1.2;
@@ -270,6 +274,9 @@
 .family-member-header .button {
     display: inline-flex;
     align-items: center;
+    /* По умолчанию кнопка прижата к левому краю шапки. Настройка
+       «Выравнивание по горизонтали» переопределяет это. */
+    align-self: flex-start;
     gap: 6px;
     padding: 10px 18px;
     background: var(--ft-accent);
@@ -374,27 +381,11 @@
     overflow: hidden;
 }
 
-.family-member-parents li,
-.family-member-siblings li,
-.family-member-spouses li,
-.family-member-children li {
-    padding: 12px 16px;
-    border-bottom: 1px solid #f0f0f1;
-    transition: background 0.15s ease;
-}
-
 .family-member-parents li:hover,
 .family-member-siblings li:hover,
 .family-member-spouses li:hover,
 .family-member-children li:hover {
     background: #f9f9f9;
-}
-
-.family-member-parents li:last-child,
-.family-member-siblings li:last-child,
-.family-member-spouses li:last-child,
-.family-member-children li:last-child {
-    border-bottom: none;
 }
 
 .family-member-parents a,
@@ -429,23 +420,53 @@
 
 .family-member-layout {
     display: flex;
+    flex-wrap: nowrap;
     gap: 28px;
     margin-top: 24px;
     justify-content: space-between;
 }
 
+/* Основа — процент от родителя, а gap добирается усадкой (flex-shrink: 1).
+   Раньше было flex: 0 0 calc(75% - 28px): flex-shrink: 0 не давал колонкам
+   ужаться, и строка выходила за родителя. */
 .family-member-content-gutenberg {
-    flex: 0 0 calc(75% - 28px);
+    flex: 0 1 75%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 20px;
 }
 
 .family-member-sidebar {
-    flex: 1 0 calc(25% - 28px);
+    flex: 1 1 25%;
+    /* min-width: 0 снимает автоматический min-width:auto — без него таблица
+       или длинное слово в сайдбаре распирали бы колонку. */
+    min-width: 0;
+    box-sizing: border-box;
     background: #f9f9f9;
     padding: 20px;
     border-radius: var(--ft-radius);
     border: 1px solid #f0f0f1;
     align-self: flex-start;
 }
+
+/* Содержимое Gutenberg не должно распирать колонку. */
+.family-member-content-gutenberg img,
+.family-member-content-gutenberg video,
+.family-member-content-gutenberg iframe,
+.family-member-content-gutenberg embed,
+.family-member-content-gutenberg object,
+.family-member-content-gutenberg svg,
+.family-member-content-gutenberg pre {
+    max-width: 100%;
+}
+
+.family-member-content-gutenberg .wp-block-table,
+.family-member-content-gutenberg table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 
 .family-member-sidebar h2 {
     color: var(--ft-text);
@@ -466,10 +487,17 @@
     background: transparent;
 }
 
-.family-member-sidebar .family-member-table th,
+/* Отступы у ячеек таблиц сайдбара разные: в колонке подписей (<th>) слева
+   ничего не нужно — подпись примыкает к краю, справа зазор до значения.
+   В колонке значений (<td>) наоборот: слева отступ от подписи, справа нет. */
+.family-member-sidebar .family-member-table th {
+    padding: 8px 6px 8px 0;
+    background: transparent;
+    border-bottom: 1px solid #f0f0f1;
+}
+
 .family-member-sidebar .family-member-table td {
-    padding: 8px 6px;
-    font-size: 0.9em;
+    padding: 8px 0 8px 6px;
     background: transparent;
     border-bottom: 1px solid #f0f0f1;
 }
@@ -478,35 +506,34 @@
     list-style: none;
     padding: 0;
     margin: 0 0 20px 0;
-    background: var(--ft-surface);
-    border: 1px solid #f0f0f1;
-    border-radius: 6px;
-    overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
 }
 
 .family-member-sidebar li {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f1;
-    font-size: 0.9em;
     transition: background 0.15s ease;
 }
 
 .family-member-sidebar li:hover {
-    background: #f9f9f9;
+    background: transparent;
 }
 
-.family-member-sidebar li:last-child {
-    border-bottom: none;
-}
 
 .family-member-sidebar a {
+    display: block;
     color: var(--ft-accent);
     text-decoration: none;
     font-weight: 500;
 }
 
+/* Подчёркивание здесь намеренно не задаётся. Раньше :hover его включал, и
+   тогда дефолт «Подчёркивание — Нет» в настройках сайдбара расходился с
+   реальностью: плагин при пустых настройках вообще не выводит свой CSS, и
+   подчёркивание темы оставалось. Теперь вид ссылки по умолчанию совпадает с
+   панелью, а включить подчёркивание можно только явным выбором — свой
+   select пишет text-decoration-line: underline !important. */
 .family-member-sidebar a:hover {
-    text-decoration: underline;
     color: var(--ft-accent-dark);
 }
 
@@ -531,12 +558,441 @@
     border: 3px solid #f0f0f0;
 }
 
-.family-member-content-gutenberg a {
-    color: var(--ft-accent);
-}
-
 .family-member-content-gutenberg a:hover {
     text-decoration: underline;
+}
+
+/* === Фотоальбом персоналии === */
+.family-member-photo-album {
+    margin: var(--ft-album-margin, 32px 0 0 0);
+    padding: var(--ft-album-padding, 20px);
+    background-color: var(--ft-album-bg-color, var(--ft-surface));
+    background-image: var(--ft-album-bg-image, var(--ft-album-bg-gradient, none));
+    background-size: var(--ft-album-bg-image-size, cover);
+    background-position: var(--ft-album-bg-image-position, center center);
+    background-repeat: var(--ft-album-bg-image-repeat, no-repeat);
+    border: var(--ft-album-border, 1px solid #f0f0f1);
+    border-radius: var(--ft-album-radius, var(--ft-radius));
+}
+
+.family-member-photo-album h2 {
+    color: var(--ft-text);
+    border-bottom: 2px solid #e5e5e5;
+    padding-bottom: 10px;
+    margin: 0 0 18px 0;
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+.family-member-photo-album__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #e5e5e5;
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+}
+
+.family-member-photo-album__header h2.family-member-photo-album__title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.family-member-photo-album__header .ft-photo-page__nav-link {
+    padding: 8px 18px;
+    font-size: 13px;
+}
+
+/* На узких экранах заголовок и кнопки встают по центру, а не по краям. */
+@media (max-width: 767px) {
+    .family-member-photo-album__header,
+    .family-member-photo-album__subheader {
+        justify-content: center !important;
+    }
+    .family-member-photo-album__subheader-name {
+        text-align: center;
+    }
+}
+
+.family-member-photo-album__subheader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: -6px 0 14px;
+    padding: 10px 14px;
+    background: rgba(250, 245, 232, 0.6);
+    border: 1px solid #e8e2d2;
+    border-radius: 12px;
+}
+
+.family-member-photo-album__subheader-name {
+    font-weight: 600;
+    color: var(--ft-text);
+}
+
+.family-member-photo-album__subheader .ft-photo-page__nav-link {
+    padding: 8px 18px;
+    font-size: 13px;
+}
+
+.family-member-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--ft-album-cols, 3), minmax(0, 1fr));
+    gap: var(--ft-album-gap, 12px);
+}
+
+.family-member-photo-item {
+    margin: 0;
+    cursor: pointer;
+    border-radius: var(--ft-album-image-radius, 8px);
+    overflow: hidden;
+    background: #f0f0f1;
+    position: relative;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.family-member-photo-item a {
+    display: block;
+}
+
+.family-member-photo-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ft-shadow-hover);
+}
+
+.family-member-photo-item img {
+    display: block;
+    width: 100%;
+    height: var(--ft-album-img-height, 150px);
+    aspect-ratio: auto;
+    object-fit: cover;
+}
+
+/* === Карточки файлов (не изображения) в разделах персоналий === */
+.ft-album-file-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: var(--ft-album-img-height, 150px);
+    padding: 16px;
+    box-sizing: border-box;
+    border-radius: var(--ft-album-image-radius, 8px);
+    background: #fafafa;
+    border: 1px solid #ddd;
+    text-decoration: none;
+    color: var(--ft-text);
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ft-album-file-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ft-shadow-hover);
+    text-decoration: none;
+}
+
+.ft-album-file-card__icon {
+    width: 44px;
+    height: 44px;
+    color: #2271b1;
+}
+
+.ft-album-file-card__name {
+    font-size: 13px;
+    line-height: 1.35;
+    word-break: break-word;
+    color: var(--ft-text);
+}
+
+.ft-album-file-card__hint {
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* === Подписи к фотографиям === */
+.family-member-photo-album figcaption {
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--ft-text);
+    text-align: center;
+    overflow-wrap: break-word;
+}
+
+.family-member-photo-album.ft-captions-below figcaption {
+    padding: var(--ft-caption-py, 8px) var(--ft-caption-px, 4px) 0;
+}
+
+.family-member-photo-album.ft-captions-above .family-member-photo-item {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.family-member-photo-album.ft-captions-above figcaption {
+    padding: 0 var(--ft-caption-px, 4px) var(--ft-caption-py, 8px);
+}
+
+.family-member-photo-album.ft-captions-overlay figcaption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: var(--ft-caption-py, 10px) var(--ft-caption-px, 12px);
+    margin: 0;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.family-member-photo-album.ft-captions-overlay .family-member-photo-item:hover figcaption {
+    opacity: 1;
+}
+
+/* === Masonry === */
+.family-member-photo-album.ft-layout-masonry .family-member-photo-grid {
+    display: block;
+    column-count: var(--ft-album-cols, 3);
+    column-gap: var(--ft-album-gap, 12px);
+}
+
+.family-member-photo-album.ft-layout-masonry .family-member-photo-item {
+    margin: 0 0 var(--ft-album-gap, 12px) 0;
+    break-inside: avoid;
+}
+
+.family-member-photo-album.ft-layout-masonry .family-member-photo-item img {
+    aspect-ratio: auto;
+    height: auto;
+}
+
+/* === Карусель === */
+.family-member-photo-album.ft-layout-carousel {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-track {
+    cursor: grab;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-track a {
+    cursor: pointer;
+}
+
+.family-member-photo-album.ft-layout-carousel.ft-album-dragging .family-member-photo-track,
+.family-member-photo-album.ft-layout-carousel.ft-album-dragging .family-member-photo-track a {
+    cursor: grabbing;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    grid-template-columns: none;
+    transition: transform 0.35s ease;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-item {
+    flex-shrink: 0;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-item a {
+    display: block;
+}
+
+.family-member-photo-album.ft-layout-carousel .family-member-photo-item img {
+    width: 100%;
+    max-width: none;
+    height: var(--ft-carousel-height, var(--ft-album-img-height, 150px));
+    object-fit: cover;
+}
+
+.family-member-photo-album.ft-layout-carousel:not(.ft-layout-carousel-fluid) .family-member-photo-item img {
+    height: auto;
+}
+
+.family-member-photo-album.ft-layout-carousel-fluid .family-member-photo-item {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 100%;
+}
+
+.family-member-photo-album.ft-layout-carousel-fluid .family-member-photo-item img {
+    width: auto;
+    object-fit: contain;
+}
+
+.ft-album-carousel-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.ft-album-carousel-controls {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.ft-album-prev,
+.ft-album-next {
+    pointer-events: auto;
+    width: 34px;
+    height: 34px;
+    border: var(--ft-album-btn-border-width, 1px) var(--ft-album-btn-border-style, solid) var(--ft-album-btn-border-color, #dcdcde);
+    border-radius: var(--ft-album-btn-radius, 50%);
+    background: var(--ft-album-btn-bg, #fff);
+    color: var(--ft-album-btn-color, #1d2327);
+    box-shadow: var(--ft-album-btn-shadow, none);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ft-album-prev:hover,
+.ft-album-next:hover {
+    background: var(--ft-album-btn-color, #1d2327);
+    border-color: var(--ft-album-btn-color, #1d2327);
+    color: var(--ft-album-btn-bg, #fff);
+}
+
+/* === Плитка: фото одной высоты, разной ширины === */
+.family-member-photo-album.ft-layout-tile .family-member-photo-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ft-album-gap, 12px);
+    grid-template-columns: none;
+}
+
+.family-member-photo-album.ft-layout-tile .family-member-photo-item {
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+}
+
+.family-member-photo-album.ft-layout-tile .family-member-photo-item a {
+    display: block;
+}
+
+.family-member-photo-album.ft-layout-tile .family-member-photo-item img {
+    width: auto;
+    max-width: 100%;
+    height: var(--ft-album-img-height, 150px);
+    aspect-ratio: auto;
+    object-fit: contain;
+}
+
+/* === Mosaic: разноразмерная мозаика === */
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--ft-album-cols, 3), minmax(0, 1fr));
+    grid-auto-rows: 130px;
+    grid-auto-flow: dense;
+    gap: var(--ft-album-gap, 12px);
+    justify-items: stretch;
+    align-items: stretch;
+}
+
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-item {
+    grid-column: span 1;
+    grid-row: span 1;
+    margin: 0;
+}
+
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-item:nth-child(5n+1),
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-item:nth-child(5n+4) {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-item a {
+    display: block;
+    height: 100%;
+}
+
+.family-member-photo-album.ft-layout-mosaic .family-member-photo-item img {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: cover;
+}
+
+@media (max-width: 1024px) {
+    .family-member-photo-grid {
+        grid-template-columns: repeat(var(--ft-album-cols-tablet, 2), minmax(0, 1fr));
+    }
+
+    .family-member-photo-album.ft-layout-masonry .family-member-photo-grid {
+        column-count: var(--ft-album-cols-tablet, 2);
+    }
+}
+
+@media (max-width: 767px) {
+    .family-member-photo-grid {
+        grid-template-columns: repeat(var(--ft-album-cols-mobile, 1), minmax(0, 1fr));
+    }
+
+    .family-member-photo-album.ft-layout-masonry .family-member-photo-grid {
+        column-count: var(--ft-album-cols-mobile, 1);
+    }
+
+    .family-member-photo-album.ft-layout-mosaic .family-member-photo-grid {
+        grid-auto-rows: 90px;
+    }
+
+    .family-member-photo-album.ft-layout-mosaic .family-member-photo-item {
+        grid-column: span 1 !important;
+        grid-row: span 1 !important;
+    }
+
+    .family-member-photo-album {
+        padding: 16px;
+    }
+
+    .family-member-content-gutenberg {
+        padding: 16px;
+    }
+
+    .ft-album-carousel-controls {
+        position: static;
+        transform: none;
+        order: 2;
+        justify-content: center;
+        margin-top: 12px;
+        pointer-events: auto;
+        z-index: auto;
+    }
+
+    .family-member-photo-album.ft-layout-carousel .family-member-photo-track {
+        order: 1;
+    }
 }
 
 @media (max-width: 1024px) {
@@ -546,8 +1002,12 @@
 
     .family-member-content-gutenberg,
     .family-member-sidebar {
-        flex: 0 0 100%;
+        /* В колоночном контейнере flex-basis отвечает за высоту, а не за
+           ширину, поэтому ширину задаём явно. */
+        flex: 0 0 auto;
+        width: 100%;
     }
+
 
     .family-member-sidebar {
         align-self: stretch;
@@ -574,6 +1034,12 @@
         gap: 20px;
     }
 
+    .family-member-header .button {
+        /* Только align-self: auto-margin'ы на поперечной оси перебивают
+           align-self, и выбор «влево» на мобильных перестал бы работать. */
+        align-self: center;
+    }
+
     .family-member-avatar {
         display: flex;
         justify-content: center;
@@ -582,7 +1048,6 @@
     .family-member-table th,
     .family-member-table td {
         padding: 10px 8px;
-        font-size: 0.9em;
     }
 }
 
@@ -617,7 +1082,6 @@
 .family-tree-surname-catalog {
     padding: 0;
     font-family: 'Open Sans', sans-serif;
-    background: var(--ft-bg);
     min-height: 100vh;
 }
 
@@ -800,6 +1264,23 @@
     padding: 8px;
     border-radius: 6px;
     background: #fafafa;
+}
+
+.family-member-signature__image {
+    background: var(--ft-surface);
+    border: 1px solid #f0f0f1;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+}
+
+.family-member-signature__image .signature-image {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    max-width: 200px;
+    width: auto;
 }
 
 .spouse-dates {
@@ -1032,7 +1513,7 @@
     padding: 9px 14px;
     font-size: 13px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #333;
+    color: #444;
     text-decoration: none;
     cursor: pointer;
     border: none;
@@ -1040,7 +1521,7 @@
     width: 100%;
     text-align: left;
     box-sizing: border-box;
-    transition: background 0.1s ease;
+    transition: background 0.1s ease, color 0.1s ease;
     line-height: 1.3;
 }
 
@@ -1056,11 +1537,14 @@
     width: 24px;
     height: 24px;
     border-radius: 5px;
-    font-size: 11px;
-    font-weight: 700;
     flex-shrink: 0;
     background: #f0f0f1;
-    color: #555;
+    color: #888;
+    transition: background 0.1s ease, color 0.1s ease;
+}
+
+.ft-share-icon svg {
+    display: block;
 }
 
 .ft-copy-link {
@@ -1129,4 +1613,169 @@
         width: 30px;
         height: 30px;
     }
+}
+
+/* ==========================================
+   НАВИГАЦИЯ ПО АЛЬБОМАМ (пред/след + счётчик)
+   Тот же вид, что на отдельной странице фотографии
+   ========================================== */
+
+.ft-photo-page__nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid #e8e2d2;
+    padding-top: 22px;
+    margin-top: 22px;
+}
+
+.ft-photo-page__nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: rgba(250, 245, 232, 0.7);
+    border: 1px solid #5b7745;
+    border-radius: 24px;
+    color: #3c4938;
+    text-decoration: none;
+    font-size: 14px;
+    font-family: 'Montserrat', sans-serif;
+    transition: background 0.2s;
+}
+
+.ft-photo-page__nav-link:hover {
+    background: #5b7745;
+    color: #fff;
+    text-decoration: none;
+}
+
+.ft-photo-page__counter {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    color: #3c4938;
+    white-space: nowrap;
+}
+
+/* Карточка блока (заголовок + содержимое) — фон, скругление, шрифт заголовка */
+.ft-photo-page__others {
+    margin: 0 0 30px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.ft-photo-page__others-title {
+    font-family: 'Cormorant', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: #3c4938;
+    margin: 0 0 16px;
+}
+
+/* Карточка шапки персоны на странице фотоальбомов */
+.ft-albums-header {
+    margin: 0 0 30px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* Заголовок персоны */
+.ft-albums-header-title {
+    font-family: 'Cormorant', serif;
+    font-size: 34px;
+    font-weight: 600;
+    color: #3c4938;
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Карточка содержимого альбома */
+.ft-albums-album {
+    margin: 30px 0 30px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* Карточка-обложка альбома (режимы album_covers / select_albums) */
+.family-member-photo-album .ft-albums-cover-card {
+    box-shadow: none;
+}
+.ft-albums-cover-card:hover {
+    border-color: #2271b1 !important;
+}
+.ft-albums-cover-card img {
+    transition: transform 0.2s ease;
+}
+.ft-albums-cover-card:hover img {
+    transform: scale(1.04);
+}
+
+/* Заголовок альбома */
+.ft-albums-album-title {
+    font-family: 'Cormorant', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: #3c4938;
+    margin: 0 0 16px;
+}
+
+@media (max-width: 820px) {
+    .ft-photo-page__nav {
+        flex-wrap: wrap;
+    }
+    .ft-albums-header-inner {
+        justify-content: center;
+        text-align: center;
+    }
+    .ft-album-tab {
+        flex: 1 1 100%;
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* ===== Приватность (ФЗ-152): заглушки при закрытом древе и скрытых персонах ===== */
+.family-tree-privacy-blocked {
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 32px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.08);
+}
+.family-tree-privacy-blocked h2 {
+    margin: 0 0 12px;
+    font-size: 1.5em;
+    color: #1d2327;
+}
+.family-tree-privacy-blocked p {
+    margin: 0;
+    font-size: 1em;
+    color: #646970;
+    line-height: 1.6;
+}
+.family-tree-privacy-person {
+    margin: 40px auto;
+    max-width: 640px;
+    text-align: center;
+}
+.family-tree-privacy-person h1 {
+    font-size: 1.6em;
+    color: #1d2327;
+}
+.family-tree-hidden-member,
+.family-tree-hidden-member:visited {
+    color: #a7aaad;
+    font-style: italic;
+    cursor: default;
+    text-decoration: none;
+}
+.family-member-hidden-page {
+    padding: 20px 0;
 }
