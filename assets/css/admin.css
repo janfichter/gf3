@@ -1,19 +1,22 @@
 .ft-card {
     background: #fff;
-    border: 1px solid #c3c4c7;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    padding: 16px;
+    margin-bottom: 16px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .ft-card-header {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1d2327;
-    margin: 0 0 20px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid #f0f0f1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e1e1e;
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e0e0e0;
     letter-spacing: 0.01em;
 }
 
@@ -23,30 +26,113 @@
     gap: 20px;
 }
 
-.ft-settings-page .ft-card {
-    max-width: 900px;
+/* === Двухколоночный макет страниц настроек: слева настройки, справа подсказки === */
+.ft-settings-page {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
 }
 
-.ft-settings-page .ft-card-header {
-    font-size: 17px;
+.ft-settings-page > .ft-settings-header,
+.ft-settings-page > .notice {
+    width: 100%;
+}
+
+.ft-settings-main {
+    width: 70%;
+    box-sizing: border-box;
+    padding-right: 24px;
+    min-width: 0;
+}
+
+.ft-settings-aside {
+    width: 30%;
+    min-width: 0;
+}
+
+.ft-hint {
+    display: none;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: #f0f6fc;
+    border: 1px solid #c5d9ed;
+    border-left: 4px solid #2271b1;
+    border-radius: 4px;
+    color: #1d2327;
+}
+
+.ft-hint.active {
+    display: block;
+}
+
+.ft-hint-title {
+    font-size: 15px;
     font-weight: 700;
     color: #135e96;
-    margin: 0 0 24px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid #f0f6fc;
-    letter-spacing: 0.01em;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    margin: 0 0 8px;
 }
 
-.ft-settings-page .ft-card-header:before {
-    content: "";
-    display: inline-block;
-    width: 4px;
-    height: 18px;
-    background: #2271b1;
-    border-radius: 2px;
+.ft-hint p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #3c434a;
+}
+
+.ft-hint--alert {
+    background: #fcf0f1;
+    border: 1px solid #fab6b6;
+    border-left: 4px solid #d63638;
+}
+
+.ft-hint--alert .ft-hint-title {
+    color: #b32d2e;
+}
+
+.ft-hint--alert p {
+    color: #8c2f39;
+}
+
+.ft-hint--success {
+    background: #edfaef;
+    border: 1px solid #b8e6bf;
+    border-left: 4px solid #00a32a;
+}
+
+.ft-hint--success .ft-hint-title {
+    color: #007017;
+}
+
+.ft-hint--success p {
+    color: #164f33;
+}
+
+.ft-hint-preview {
+    display: block;
+    margin-top: 12px;
+    border: 1px solid #c5d9ed;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: zoom-in;
+}
+
+.ft-hint-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.ft-hint-preview:hover {
+    border-color: #2271b1;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 782px) {
+    .ft-settings-main,
+    .ft-settings-aside {
+        width: 100%;
+        padding-right: 0;
+    }
 }
 
 .spouse-entry {
@@ -84,8 +170,8 @@
     color: #1d2327;
 }
 
-.marriage-date input,
-.divorce-date input {
+.marriage-date input[type="number"],
+.divorce-date input[type="number"] {
     width: 60px;
     padding: 6px 8px;
     border: 1px solid #8c8f94;
@@ -99,6 +185,14 @@
     border: 1px solid #8c8f94 !important;
     border-radius: 4px !important;
     background: #fff !important;
+}
+
+/* Поля годов «ГГГГ» — чуть шире полей дня/месяца.
+   Покрывает дату рождения, рождения по новому стилю,
+   смерти, смерти по новому стилю, брака и развода. */
+.ft-date-input[name$="_year"],
+.ft-date-input[name$="_year]"] {
+    width: 80px !important;
 }
 
 .child-item {
@@ -479,6 +573,3189 @@ button#add-child:hover {
     gap: 8px;
 }
 
-.ft-checkbox-label input[type="checkbox"] {
+.ft-checkbox-label input[type="checkbox"],
+.marriage-date input[type="checkbox"],
+.divorce-date input[type="checkbox"] {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
     margin-right: 0;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+/* === Фотоальбом: колонка в списке === */
+.ft-album-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.ft-album-cell .ft-album-count {
+    font-size: 12px;
+    color: #646970;
+}
+
+.column-photo_album {
+    width: 180px;
+}
+
+/* === Фотоальбом: метабокс редактирования === */
+.ft-album-metabox .ft-album-empty-text {
+    font-size: 13px;
+    margin: 0 0 10px;
+}
+
+.ft-album-manage {
+    margin-top: 4px;
+}
+
+.ft-album-manage > p:first-child {
+    margin-top: 0;
+}
+
+.ft-album-editor-count {
+    font-weight: normal;
+    color: #646970;
+    margin-left: 6px;
+}
+
+.ft-album-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.ft-album-editor-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #dcdcde;
+    background: #f6f7f7;
+}
+
+.ft-album-editor-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Перетаскивание и перестановка фотографий в альбомах (метабокс + «Содержимое альбомов») */
+.ft-reorder-album-photos .ft-album-editor-item {
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition: box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.ft-reorder-album-photos .ft-album-editor-item img {
+    pointer-events: none;
+}
+.ft-album-editor-item.ft-dragging {
+    opacity: 0.45;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    z-index: 50;
+}
+.ft-album-editor-placeholder {
+    width: 100px;
+    height: 100px;
+    box-sizing: border-box;
+    border: 2px dashed #2271b1;
+    border-radius: 6px;
+    background: rgba(34, 113, 177, 0.08);
+}
+.ft-sort-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 36px;
+    z-index: 999999;
+    transform: translate(-50%, 16px);
+    background: rgba(60, 73, 56, 0.95);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.ft-sort-toast.ft-sort-toast-show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.ft-remove-album-photo-btn,
+.ft-album-editor-trash {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: #d63638;
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    line-height: 24px;
+}
+
+.ft-remove-album-photo-btn::before,
+.ft-remove-album-photo-btn::after,
+.ft-album-editor-trash::before,
+.ft-album-editor-trash::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 11px;
+    height: 2px;
+    margin: -1px 0 0 -5.5px;
+    background: #fff;
+    border-radius: 1px;
+}
+
+.ft-remove-album-photo-btn::before,
+.ft-album-editor-trash::before {
+    transform: rotate(45deg);
+}
+
+.ft-remove-album-photo-btn::after,
+.ft-album-editor-trash::after {
+    transform: rotate(-45deg);
+}
+
+.ft-remove-album-photo-btn:hover,
+.ft-album-editor-trash:hover {
+    background: #b32d2e;
+    color: #fff;
+}
+
+.ft-album-editor-view {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 50%;
+    color: #fff;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ft-album-editor-edit {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 50%;
+    color: #fff;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ft-album-editor-edit .dashicons,
+.ft-album-editor-view .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+}
+
+.ft-album-editor-view:hover,
+.ft-album-editor-edit:hover {
+    background: rgba(35, 40, 45, 0.85);
+    color: #fff;
+}
+
+.ft-album-no-photos {
+    margin: 0;
+}
+
+/* === Перестановка альбомов (строки таблицы) === */
+.ft-reorder-albums tr.ft-album-row {
+    cursor: move;
+}
+.ft-reorder-albums tr.ft-album-row.ft-row-dragging {
+    opacity: 0.45;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.ft-reorder-albums tr.ft-album-row-placeholder td {
+    height: 18px;
+    border: 2px dashed #2271b1;
+    background: rgba(34, 113, 177, 0.07);
+}
+.ft-album-row-handle {
+    font-weight: 600;
+    color: #787c82;
+    cursor: move;
+}
+.ft-album-cover-cell {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #dcdcde;
+    background: #f6f7f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ft-album-cover-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.ft-album-cover-cell .dashicons {
+    width: 22px;
+    height: 22px;
+    font-size: 22px;
+    color: #c3c4c7;
+}
+
+/* === Модалка «Обложка и описание альбома» === */
+.ft-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    display: none;
+}
+.ft-modal.ft-modal-open {
+    display: block;
+}
+.ft-modal__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+.ft-modal__box {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    width: 460px;
+    max-width: 92vw;
+    padding: 20px 24px 22px;
+    box-sizing: border-box;
+}
+.ft-modal__close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    border: none;
+    background: none;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #646970;
+    padding: 2px 6px;
+}
+.ft-modal__close:hover {
+    color: #135e96;
+}
+.ft-cover-picker {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin: 14px 0 4px;
+}
+.ft-cover-preview {
+    width: 92px;
+    height: 92px;
+    border-radius: 6px;
+    border: 1px solid #dcdcde;
+    background: #f6f7f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.ft-cover-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.ft-cover-preview .dashicons {
+    width: 36px;
+    height: 36px;
+    font-size: 36px;
+    color: #c3c4c7;
+}
+.ft-modal__actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.ft-modal label {
+    font-weight: 600;
+}
+.ft-modal textarea {
+    margin-top: 6px;
+}
+
+/* === Режим отображения фотоальбомов персоны (метабокс) === */
+.ft-album-metabox fieldset {
+    margin-top: 6px;
+}
+.ft-album-display-preview {
+    margin: 8px 0 12px;
+    padding: 12px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 8px;
+    background: #fbfbfc;
+    max-height: 480px;
+    overflow: auto;
+}
+.ft-album-display-preview.ft-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+.ft-album-metabox hr {
+    margin: 12px 0;
+}
+.ft-album-metabox .widefat {
+    max-width: 360px;
+}
+.ft-album-display-preview .ft-albums-covers {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.ft-album-display-preview .ft-albums-cover-card img {
+    height: 90px !important;
+}
+/* ===== Тумблер «Включено/Выключено» раздела в метабоксе персоны ===== */
+.ft-section-toggle {
+    margin: 12px 0 4px;
+    padding: 10px 12px;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    background: #f6f7f7;
+    max-width: 520px;
+}
+.ft-section-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.ft-section-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+.ft-section-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: #d63638;
+    transition: background .2s ease;
+    flex: 0 0 auto;
+}
+.ft-section-toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+    transition: left .2s ease;
+}
+.ft-section-toggle-input:checked + .ft-section-toggle-switch {
+    background: #00ba37;
+}
+.ft-section-toggle-input:checked + .ft-section-toggle-switch::after {
+    left: 20px;
+}
+.ft-section-toggle-input:focus-visible + .ft-section-toggle-switch {
+    box-shadow: 0 0 0 2px #2271b1;
+}
+.ft-section-toggle-state {
+    font-size: 13px;
+    font-weight: 600;
+    color: #d63638;
+    transition: color .2s ease;
+}
+.ft-section-toggle-input:checked + .ft-section-toggle-switch + .ft-section-toggle-state {
+    color: #00ba37;
+}
+.ft-section-toggle-note {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #646970;
+}
+.ft-section-toggle.ft-off .ft-section-toggle-switch {
+    background: #d63638;
+}
+.ft-section-toggle.ft-off .ft-section-toggle-state {
+    color: #d63638;
+}
+
+/* Заголовки метабоксов персоналии — крупнее, чтобы было заметнее */
+#poststuff h2.hndle[id^="family-member-"] {
+    font-size: 18px !important;
+}
+
+/* Метабокс «Подпись» */
+.ft-signature-metabox__preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 12px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 6px;
+    background: #f6f7f7;
+    text-align: center;
+    box-sizing: border-box;
+}
+.ft-signature-metabox__preview img {
+    max-width: 100%;
+    max-height: 240px;
+    width: auto;
+    height: auto;
+}
+.ft-signature-metabox__empty {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #646970;
+    font-size: 13px;
+}
+.ft-signature-metabox__empty .dashicons {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: #a7aaad;
+}
+
+/* Устранение наложения нижней панели блочного редактора (хлебные крошки «Член семьи»)
+   на административный футер WordPress («Спасибо вам за творчество с WordPress»).
+   Панель редактора липкая (position: sticky; bottom: 0), а #wpfooter лежит
+   абсолютным слоем у низа страницы — при прокрутке до конца они встают друг на друга.
+   На страницах редактора персоналий скрываем административный футер. */
+.block-editor-page #wpfooter {
+    display: none;
+}
+
+/* === Подсказка про метабоксы на странице редактирования персоналии === */
+.ft-metabox-tooltip {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    z-index: 999999;
+    width: calc(100% - 40px);
+    max-width: 400px;
+    box-sizing: border-box;
+    padding: 18px 20px 16px;
+    background: #1d2327;
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, 12px);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+}
+
+.ft-metabox-tooltip--show {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+}
+
+.ft-metabox-tooltip-close {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 20px;
+    line-height: 24px;
+    cursor: pointer;
+}
+
+.ft-metabox-tooltip-close:hover {
+    color: #fff;
+}
+
+.ft-metabox-tooltip-icon {
+    font-size: 24px;
+    line-height: 1;
+    color: #72aee6;
+    margin-bottom: 8px;
+}
+
+.ft-metabox-tooltip-text {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #fff;
+}
+
+.ft-metabox-tooltip-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    user-select: none;
+}
+
+.ft-metabox-tooltip-check input[type="checkbox"] {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.ft-metabox-tooltip-arrow {
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #1d2327;
+}
+
+/* ==========================================================================
+   Согласие на публикацию данных (ФЗ-152) — блок над заголовком персоналии
+   ========================================================================== */
+.ft-consent-box {
+    margin: 12px 0 4px;
+    padding: 14px 16px;
+    background: #fff8e5;
+    border: 1px solid #e0b54a;
+    border-left: 4px solid #dba617;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.ft-consent-box.is-given {
+    background: #f0f7e8;
+    border-color: #7fb069;
+    border-left-color: #46b450;
+}
+.ft-consent-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+    color: #1d2327;
+}
+.ft-consent-label input[type="checkbox"] {
+    margin-top: 3px;
+    min-width: 16px;
+}
+.ft-consent-text {
+    font-size: 13px;
+}
+.ft-consent-status {
+    margin: 8px 0 0 26px;
+    color: #46b450;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#publish[disabled],
+#save-post[disabled] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ==========================================================================
+   Тумблер «Приватность» в списке персоналий
+   ========================================================================== */
+.ft-privacy-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px 3px 4px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1;
+}
+.ft-privacy-toggle:hover {
+    border-color: #8c8f94;
+}
+.ft-privacy-toggle-track {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    background: #c3c4c7;
+    border-radius: 999px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.ft-privacy-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s;
+}
+.ft-privacy-toggle.is-private .ft-privacy-toggle-track {
+    background: #2271b1;
+}
+.ft-privacy-toggle.is-private .ft-privacy-toggle-thumb {
+    transform: translateX(16px);
+}
+.ft-privacy-toggle-label {
+    font-size: 12px;
+    color: #50575e;
+    white-space: nowrap;
+}
+.ft-privacy-toggle.is-private .ft-privacy-toggle-label {
+    color: #2271b1;
+    font-weight: 600;
+}
+.ft-privacy-toggle.is-busy {
+    opacity: 0.55;
+    cursor: progress;
+}
+.ft-privacy-toggle--muted {
+    cursor: default;
+    color: #8c8f94;
+    background: #f6f7f7;
+}
+.ft-privacy-toggle--muted .ft-privacy-toggle-label {
+    color: #8c8f94;
+}
+
+/* ==========================================================================
+   genius_plugin Blocks skin — страницы настроек «Семейное древо» и «Семейный архив»
+   Стили в духе инспектора genius_plugin Blocks (Gutenberg-компоненты).
+   Скопировано в .ft-settings-page, чтобы не затрагивать остальную админку.
+   ========================================================================== */
+.ft-settings-page {
+    --ft-kb-theme: #00669b;
+    --ft-kb-border: #859cb6;
+    --ft-kb-head: #2d3748;
+    --ft-kb-label: #5a5a5a;
+    --ft-kb-line: #e0e0e0;
+}
+
+.ft-settings-page .ft-settings-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ft-settings-page .ft-settings-header h1 {
+    margin: 0;
+}
+
+.ft-settings-page .ft-settings-header .ft-version-badge {
+    background: #f0f0f1;
+    border: 1px solid var(--ft-kb-line);
+    border-radius: 2px;
+    color: var(--ft-kb-label);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 4px 8px;
+    text-transform: lowercase;
+}
+
+/* --- Инспектор-вкладки (genius_plugin-blocks-inspector-tabs) --- */
+.ft-settings-page .genius_plugin-blocks-inspector-tabs {
+    display: flex;
+    align-items: stretch;
+    margin: 0 0 20px;
+    padding: 0;
+    background: transparent;
+    border-bottom: 1px solid var(--ft-kb-line);
+}
+
+.ft-settings-page .genius_plugin-blocks-inspector-tab {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 46px;
+    margin: 0 2px 0 0;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ft-kb-head);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ft-settings-page .genius_plugin-blocks-inspector-tab:last-child {
+    margin-right: 0;
+}
+
+.ft-settings-page .genius_plugin-blocks-inspector-tab:hover,
+.ft-settings-page .genius_plugin-blocks-inspector-tab:focus-visible {
+    background: #f0f0f1;
+    color: var(--ft-kb-head);
+    outline: none;
+}
+
+.ft-settings-page .genius_plugin-blocks-inspector-tab.active {
+    background: #fff;
+    box-shadow: inset 0 -3px 0 0 var(--ft-kb-theme, #00669b);
+    color: var(--ft-kb-head);
+    font-weight: 600;
+}
+
+.ft-settings-page .genius_plugin-blocks-tabs-label {
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+/* --- Панель компонентов (components-panel__body) --- */
+.ft-settings-page .components-panel {
+    display: block;
+    border: 0;
+}
+
+.ft-settings-page .components-panel__body {
+    background: #fff;
+    border: 1px solid var(--ft-kb-line);
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    margin: 0 0 16px;
+}
+
+.ft-settings-page .components-panel__body-title {
+    margin: 0;
+}
+
+.ft-settings-page .components-panel__body-title .components-panel__body-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 12px 16px;
+    background: none;
+    border: 0;
+    border-radius: 2px;
+    box-shadow: none;
+    color: #1e1e1e;
+    cursor: pointer;
+    text-align: left;
+}
+
+.ft-settings-page .components-panel__body-title .components-panel__body-toggle:hover,
+.ft-settings-page .components-panel__body-title .components-panel__body-toggle:focus-visible {
+    background: #f0f0f1;
+    outline: none;
+}
+
+.ft-settings-page .components-panel__body-title h2 {
+    margin: 0;
+    color: #1e1e1e;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.ft-settings-page .components-panel__arrow {
+    flex: 0 0 auto;
+    color: #1e1e1e;
+    transition: transform 0.15s ease;
+}
+
+.ft-settings-page .components-panel__body.is-opened > .components-panel__body-title .components-panel__arrow {
+    transform: rotate(180deg);
+}
+
+.ft-settings-page .components-panel__body:not(.is-opened) .components-panel__body-content {
+    display: none;
+}
+
+.ft-settings-page .components-panel__body:not(.is-opened) > *:not(.components-panel__body-title) {
+    display: none;
+}
+
+.ft-settings-page .components-panel__body-content {
+    padding: 16px;
+    border-top: 1px solid var(--ft-kb-line);
+}
+
+/* --- Базовый контрол (components-base-control) --- */
+.ft-settings-page .components-base-control {
+    margin: 0 0 16px;
+    padding: 0;
+}
+
+/* Названия БЛОКОВ — единый стиль для всех настроек и всех табов.
+   Сюда попадает всё, что названо components-base-control__label, но не
+   помечено ft-phs-heading: «Фон подписи», «Текст ссылки», «Граница»,
+   «Форма», «Выравнивание по горизонтали», подписи полей и т. п.
+   Строчные, мелкие, приглушённые, полужирные. Верхний регистр задаём через
+   text-transform только у заголовков разделов — здесь он не нужен,
+   иначе «Фон подписи» выглядел бы как заголовок.
+   Класс components-base-control__label повешен в разметке и на подписи
+   ячеек (.ft-phs-caption), и на «Выравнивание по горизонтали»: держать
+   их вид здесь, в одном правиле, иначе названия блоков снова разъедутся. */
+.ft-settings-page .components-base-control__label,
+.ft-settings-page .components-base-control__header {
+    display: block;
+    margin: 0 0 8px;
+    padding: 0;
+    color: var(--ft-kb-label, #646970);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: default;
+}
+
+/* Заголовок РАЗДЕЛА. Ставится в разметке явно (ft-phs-heading), потому что
+   и заголовок, и название блока размечены одним классом WP и по структуре
+   их не различить: «Фон подписи» тоже прямой потомок .ft-phs-block.
+   В ПРОПИСНЫХ, жирные, с линией снизу — они делят панель на смысловые части. */
+.ft-settings-page .ft-phs-heading {
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dcdcde;
+    color: var(--ft-kb-head);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ft-settings-page .components-base-control__field {
+    margin: 0;
+}
+
+.ft-settings-page .components-base-control__help {
+    margin: 8px 0 0;
+    color: var(--ft-kb-label);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.5;
+}
+
+.ft-settings-page .components-base-control__description {
+    margin: 0;
+}
+
+.ft-settings-page .components-base-control + .components-base-control {
+    border-top: 1px solid #f0f0f1;
+    padding-top: 16px;
+}
+
+/* --- Переключатель (components-form-toggle) --- */
+.ft-settings-page .components-form-toggle {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 18px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.ft-settings-page .components-form-toggle__input {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    left: 0;
+    width: 36px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+}
+
+.ft-settings-page .components-form-toggle__track {
+    position: absolute;
+    inset: 0;
+    background: #949494;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+}
+
+.ft-settings-page .components-form-toggle__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.ft-settings-page .components-form-toggle__input:checked + .components-form-toggle__track {
+    background: var(--ft-kb-theme, #00669b);
+}
+
+.ft-settings-page .components-form-toggle__input:checked ~ .components-form-toggle__thumb {
+    transform: translateX(18px);
+}
+
+.ft-settings-page .components-form-toggle__input:focus-visible + .components-form-toggle__track {
+    box-shadow: 0 0 0 2px rgba(0, 102, 155, 0.4);
+}
+
+.ft-settings-page .components-form-toggle__label {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    color: var(--ft-kb-head);
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+/* --- Сегмент-кнопки (genius_plugin-radio-container-control) --- */
+.ft-settings-page .components-button-group {
+    display: flex;
+    width: 100%;
+    border-radius: 2px;
+}
+
+.ft-settings-page .components-button-group .components-button,
+.ft-settings-page .ft-layout-tabs .ft-layout-tab {
+    position: relative;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    display: flex;
+    min-height: 36px;
+    margin: 0;
+    padding: 0 8px;
+    background: #fff;
+    border: 1px solid var(--ft-kb-border);
+    border-left-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--ft-kb-head);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.3;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.ft-settings-page .components-button-group .components-button:first-child,
+.ft-settings-page .ft-layout-tabs .ft-layout-tab:first-child {
+    border-left-width: 1px;
+    border-radius: 2px 0 0 2px;
+}
+
+.ft-settings-page .components-button-group .components-button:last-child,
+.ft-settings-page .ft-layout-tabs .ft-layout-tab:last-child {
+    border-radius: 0 2px 2px 0;
+}
+
+.ft-settings-page .components-button-group .components-button:hover,
+.ft-settings-page .ft-layout-tabs .ft-layout-tab:hover {
+    background: #f0f0f1;
+}
+
+.ft-settings-page .ft-layout-tabs .ft-layout-tab input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ft-settings-page .ft-layout-tabs .ft-layout-tab input:checked + span,
+.ft-settings-page .components-button-group .components-button.is-primary {
+    background: var(--ft-kb-theme, #00669b);
+    border-color: var(--ft-kb-theme, #00669b);
+    color: #fff;
+}
+
+.ft-settings-page .ft-layout-tabs {
+    margin: 0 0 10px;
+}
+
+/* --- Поле ввода / селект / мера (genius_plugin-measure-control) --- */
+.ft-settings-page .components-base-control input[type="text"],
+.ft-settings-page .components-base-control input[type="number"],
+.ft-settings-page .components-base-control input[type="url"],
+.ft-settings-page .components-base-control select {
+    height: 36px;
+    margin: 0;
+    padding: 0 8px;
+    border: 1px solid var(--ft-kb-border);
+    border-radius: 2px;
+    box-shadow: none;
+    color: var(--ft-kb-head);
+    font-size: 13px;
+    line-height: normal;
+    background: #fff;
+}
+
+.ft-settings-page .components-base-control select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 28px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a5a5a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+}
+
+.ft-settings-page .components-base-control input[type="text"]:focus,
+.ft-settings-page .components-base-control input[type="number"]:focus,
+.ft-settings-page .components-base-control input[type="url"]:focus,
+.ft-settings-page .components-base-control select:focus {
+    border-color: var(--ft-kb-theme, #00669b);
+    box-shadow: 0 0 0 1px var(--ft-kb-theme, #00669b);
+    outline: none;
+}
+
+/* --- Единый вид всех полей ввода, селектов и textarea на всей странице настроек (все табы) --- */
+.ft-settings-page input[type="text"],
+.ft-settings-page input[type="number"],
+.ft-settings-page input[type="url"],
+.ft-settings-page input[type="search"],
+.ft-settings-page input[type="email"],
+.ft-settings-page input[type="password"],
+.ft-settings-page textarea,
+.ft-settings-page select {
+    height: 36px !important;
+    min-height: 36px !important;
+    margin: 0;
+    padding: 0 8px;
+    border: 1px solid var(--ft-kb-border);
+    border-radius: 2px;
+    box-shadow: none;
+    color: var(--ft-kb-head);
+    font-size: 13px;
+    line-height: normal;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.ft-settings-page select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 28px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a5a5a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+}
+
+.ft-settings-page input[type="text"]:focus,
+.ft-settings-page input[type="number"]:focus,
+.ft-settings-page input[type="url"]:focus,
+.ft-settings-page input[type="search"]:focus,
+.ft-settings-page input[type="email"]:focus,
+.ft-settings-page input[type="password"]:focus,
+.ft-settings-page textarea:focus,
+.ft-settings-page select:focus {
+    border-color: var(--ft-kb-theme, #00669b);
+    box-shadow: 0 0 0 1px var(--ft-kb-theme, #00669b);
+    outline: none;
+}
+
+/* Внутри цветовой палитры поля остаются компактными */
+.ft-settings-page .ft-bg-popover input[type="text"],
+.ft-settings-page .ft-bg-popover input[type="number"] {
+    height: auto !important;
+    min-height: 26px !important;
+}
+
+.ft-settings-page .components-base-control input[type="range"] {
+    accent-color: var(--ft-kb-theme, #00669b);
+}
+
+.ft-settings-page .ft-measure {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-measure .ft-measure-unit {
+    color: var(--ft-kb-label);
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+/* --- Компонентный заголовок с кнопкой сброса (genius_plugin-component__header) --- */
+.ft-settings-page .genius_plugin-component__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 8px;
+}
+
+.ft-settings-page .genius_plugin-component__header .components-base-control__label {
+    margin: 0;
+}
+
+.ft-settings-page .title-reset-wrap {
+    display: flex;
+    min-width: 20px;
+}
+
+.ft-settings-page .genius_plugin-settings-click-to-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin: 0 0 0 -20px;
+    padding: 0;
+    background: none;
+    color: var(--ft-kb-theme, #00669b);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    border: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease, margin 0.15s ease;
+}
+
+.ft-settings-page .genius_plugin-component__header:hover .genius_plugin-settings-click-to-reset,
+.ft-settings-page .genius_plugin-settings-click-to-reset:focus-visible {
+    opacity: 1;
+    margin-left: 0;
+}
+
+/* --- Двухколоночная группа (genius_plugin-two-column-group) --- */
+.ft-settings-page .genius_plugin-two-column-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 0 0 16px;
+}
+
+.ft-settings-page .genius_plugin-two-column-group .components-base-control {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+/* --- Цветовой контрол (genius_plugin-pop-color-control) --- */
+.ft-settings-page .genius_plugin-pop-color-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .genius_plugin-pop-color-indicate {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+}
+
+.ft-settings-page .ft-color-presets {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.ft-settings-page .ft-color-presets .ft-color-preset {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border: 1px solid #c3c4c7;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ft-settings-page .ft-color-presets .ft-color-preset:hover {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--ft-kb-theme, #00669b);
+}
+
+.ft-settings-page .ft-color-presets .ft-color-preset-label {
+    color: var(--ft-kb-label);
+    font-size: 12px;
+}
+
+/* --- Все кнопки «Сбросить»: единый вид (как у «Ширина контейнера») --- */
+.ft-settings-page .ft-color-reset,
+.ft-settings-page .ft-border-reset,
+.ft-settings-page .ft-pa-border-reset,
+.ft-settings-page .ft-bg-reset,
+.ft-settings-page .ft-bg-grad-reset,
+.ft-settings-page .ft-phs-reset {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 1px solid #dc3232;
+    border-radius: 4px;
+    background: #f6f7f7;
+    color: #dc3232;
+    font-size: 0;
+    line-height: 1;
+    text-decoration: none;
+    box-shadow: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ft-settings-page .ft-color-reset:hover,
+.ft-settings-page .ft-border-reset:hover,
+.ft-settings-page .ft-pa-border-reset:hover,
+.ft-settings-page .ft-bg-reset:hover,
+.ft-settings-page .ft-bg-grad-reset:hover,
+.ft-settings-page .ft-phs-reset:hover {
+    background: #dc3232;
+    color: #fff;
+    border-color: #dc3232;
+    box-shadow: none;
+}
+
+.ft-settings-page .ft-color-reset:focus-visible,
+.ft-settings-page .ft-border-reset:focus-visible,
+.ft-settings-page .ft-pa-border-reset:focus-visible,
+.ft-settings-page .ft-bg-reset:focus-visible,
+.ft-settings-page .ft-bg-grad-reset:focus-visible,
+.ft-settings-page .ft-phs-reset:focus-visible {
+    outline: 2px solid #dc3232;
+    outline-offset: 1px;
+}
+
+.ft-settings-page .ft-color-reset svg,
+.ft-settings-page .ft-border-reset svg,
+.ft-settings-page .ft-pa-border-reset svg,
+.ft-settings-page .ft-bg-reset svg,
+.ft-settings-page .ft-bg-grad-reset svg,
+.ft-settings-page .ft-phs-reset svg {
+    fill: currentColor;
+    pointer-events: none;
+}
+
+/* --- Контрол фона (единый: классический / градиент) --- */
+.ft-settings-page .ft-bg-control {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Отступ блока фона в настройках контейнера */
+.ft-settings-page #ft-bg-ctrl {
+    margin: 0 0 16px;
+}
+
+/* === Measure-контрол: скругление углов / размеры (классы ft-*) === */
+.ft-settings-page .ft-measure {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    background: #fff;
+    width: 50%;
+    box-sizing: border-box;
+}
+
+/* Сетка measure-контролов: 2 колонки, отступ 16px и по рядам, и по колонкам.
+   Высота выравнивается только внутри своего ряда (align-items: stretch по умолчанию),
+   каждый ряд считает высоту независимо по своему самому высокому блоку. */
+.ft-settings-page .ft-measure-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure {
+    max-width: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Пояснение прижато к низу, чтобы блоки одной высоты выглядели ровно */
+.ft-settings-page .ft-measure-row > .ft-measure > .components-base-control__help {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+@media (max-width: 960px) {
+    .ft-settings-page .ft-measure-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* «Размеры карточек»: блоки идут в ряд рядом друг с другом с отступом 16px,
+   каждый по ширине своего содержимого (не растягиваются на пол-экрана).
+   Лейбл ВСЕГДА над инпутом при любой ширине: flex-direction: column ниже
+   намеренно не переопределяется ни в одном медиазапросе. Если места не хватает,
+   ряд переносится целиком (flex-wrap), но лейбл остаётся сверху. */
+.ft-settings-page .ft-card-size-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.ft-settings-page .ft-card-size-field {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    gap: 6px;
+}
+
+.ft-settings-page .ft-card-size-label {
+    display: block;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #646970;
+}
+
+.ft-settings-page .ft-card-size-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ft-settings-page .ft-card-size-input {
+    width: 90px;
+    flex: 0 0 auto;
+}
+
+.ft-settings-page .ft-card-size-unit {
+    font-size: 12px;
+    color: #646970;
+}
+
+/* Блок, стоящий в ряду один (без соседа), на узких экранах растягивается на всю ширину.
+   Внутри .ft-measure-row блоки и так уже 100% ширины ячейки. */
+@media (max-width: 991.98px) {
+    .ft-settings-page .ft-measure {
+        width: 100%;
+    }
+}
+
+.ft-settings-page .ft-measure .ft-measure__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ft-settings-page .ft-measure .ft-measure__link,
+.ft-settings-page .ft-measure .ft-measure__reset {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #dc3232;
+    border-radius: 4px;
+    background: #f6f7f7;
+    color: #dc3232;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ft-settings-page .ft-measure .ft-measure__link[aria-pressed="true"] {
+    background: #dc3232;
+    color: #fff;
+}
+
+.ft-settings-page .ft-measure .ft-measure__link:hover,
+.ft-settings-page .ft-measure .ft-measure__reset:hover {
+    background: #dc3232;
+    color: #fff;
+}
+
+.ft-settings-page .ft-measure .ft-measure__link svg,
+.ft-settings-page .ft-measure .ft-measure__reset svg {
+    fill: currentColor;
+}
+
+.ft-settings-page .ft-measure .ft-measure__range-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+}
+
+.ft-settings-page .ft-measure .ft-measure__range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #dcdcde;
+    outline: none;
+}
+
+.ft-settings-page .ft-measure .ft-measure__range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #305cde;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #305cde;
+    cursor: pointer;
+}
+
+.ft-settings-page .ft-measure .ft-measure__range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #305cde;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #305cde;
+    cursor: pointer;
+}
+
+.ft-settings-page .ft-measure .ft-measure__unit {
+    flex: 0 0 auto;
+    width: 68px;
+}
+
+.ft-settings-page .ft-measure .ft-measure__corners {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.ft-settings-page .ft-measure .ft-measure__corner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.ft-settings-page .ft-measure .ft-measure__corner-ico {
+    font-size: 12px;
+    line-height: 1.2;
+    color: #757575;
+}
+
+.ft-settings-page .ft-measure .ft-measure__corner-input,
+.ft-settings-page .ft-measure .ft-measure__single-input {
+    width: 100%;
+    text-align: center;
+}
+
+.ft-settings-page .ft-measure .ft-measure__single {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ft-settings-page .ft-measure .ft-measure__single-input {
+    max-width: 84px;
+}
+
+.ft-settings-page .ft-measure--range-value .ft-measure__single-input {
+    width: 72px;
+}
+
+/* === Measure-контрол «Граница» (разновидность для границы): все в один ряд === */
+/* Ширина задаётся общим правилом .ft-measure (50%), отдельного ограничения нет. */
+.ft-settings-page .ft-measure--border .ft-measure__head {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+/* В ячейке сетки ширина ограничена — даём контролу сжиматься и переноситься */
+.ft-settings-page .ft-measure-row > .ft-measure--border {
+    max-width: none;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure--border .ft-measure__head {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure--border .ft-measure__single-input {
+    max-width: 64px;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure--border .ft-measure__unit {
+    width: 60px;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure--border .ft-measure__style {
+    max-width: 110px;
+}
+
+.ft-settings-page .ft-measure-row > .ft-measure--border .ft-bg-control .ft-bg-color-input {
+    width: 76px !important;
+}
+
+.ft-settings-page .ft-measure--border .ft-measure__style {
+    flex: 0 0 auto;
+    max-width: 130px;
+}
+
+.ft-settings-page .ft-measure--border .ft-bg-control {
+    position: relative;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.ft-settings-page .ft-measure--border .ft-bg-control .ft-bg-pane,
+.ft-settings-page .ft-measure--border .ft-bg-control .ft-bg-pane-classic {
+    display: contents !important;
+}
+
+.ft-settings-page .ft-measure--border .ft-bg-control .ft-bg-color-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.ft-settings-page .ft-measure--border .ft-bg-control .ft-bg-color-input {
+    width: 84px !important;
+}
+
+.ft-settings-page .ft-measure--border .ft-bg-control .ft-bg-reset {
+    display: none;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-type-tabs {
+    display: inline-flex;
+    padding: 2px;
+    background: #f0f0f1;
+    border-radius: 18px;
+    gap: 2px;
+    width: fit-content;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-type-tab {
+    background: none;
+    border: 0;
+    padding: 5px 16px;
+    border-radius: 16px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #50575e;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-type-tab.is-active {
+    background: #fff;
+    color: #1d2327;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-type-tab:hover:not(.is-active) {
+    color: var(--ft-kb-theme, #00669b);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-pane {
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-pane[style*="display:none"] {
+    display: none;
+}
+
+/* Строка выбора цвета: образец, поле и «Сбросить» всегда в одном ряду.
+   nowrap, чтобы кнопка сброса не уезжала на отдельную строку. */
+.ft-settings-page .ft-bg-control .ft-bg-color-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+.ft-settings-page .ft-bg-control .ft-bg-color-input {
+    width: 100px !important;
+    min-width: 0;
+    min-height: 30px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-swatch {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 50%;
+    border: 1px solid #c3c4c7;
+    background: #fff;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-swatch:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--ft-kb-theme, #00669b);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-color-input {
+    width: 100px !important;
+    min-height: 30px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover {
+    position: relative;
+    display: none;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-sv {
+    position: relative;
+    height: 150px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: crosshair;
+    background: #f00;
+    display: none;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-sv-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, #000, rgba(0, 0, 0, 0) 100%), linear-gradient(to right, #fff, rgba(255, 255, 255, 0) 100%);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-sv-thumb {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-hue {
+    position: relative;
+    height: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+    display: none;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-hue-thumb {
+    position: absolute;
+    top: -2px;
+    width: 8px;
+    height: 20px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-alpha-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-alpha-row label {
+    font-size: 12px;
+    color: #646970;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-alpha {
+    flex: 1;
+    min-width: 80px;
+    min-height: 30px;
+    background: repeating-conic-gradient(#dcdcde 0% 25%, transparent 0% 50%) 0 0 / 10px 10px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-alpha-value {
+    font-size: 12px;
+    color: #646970;
+    min-width: 38px;
+    text-align: right;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel {
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    color: #646970;
+    text-align: center;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel input {
+    width: 44px !important;
+    min-height: 26px;
+    padding: 0 4px;
+    text-align: center;
+    font-size: 12px;
+    -moz-appearance: textfield;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel input::-webkit-outer-spin-button,
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-quick-swatch {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    border: 1px solid #c3c4c7;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-quick-swatch:hover {
+    transform: scale(1.15);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-remove-stop {
+    align-self: flex-start;
+    color: #b32d2e;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open {
+    position: absolute;
+    z-index: 100000;
+    left: 0;
+    bottom: calc(100% + 8px);
+    width: 260px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open.ft-bg-drop-down {
+    top: calc(100% + 8px);
+    bottom: auto;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open .ft-bg-sv,
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open .ft-bg-hue {
+    display: block;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open .ft-bg-alpha-row,
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open .ft-bg-channel-row,
+.ft-settings-page .ft-bg-control .ft-bg-popover.is-open .ft-bg-quick {
+    display: flex;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-channel-row,
+.ft-settings-page .ft-bg-control .ft-bg-popover .ft-bg-quick {
+    display: none;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-image-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Две кнопки выбора изображения стоят рядом с промежутком 16px */
+.ft-settings-page .ft-bg-control .ft-bg-image-buttons {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-image-urlrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-image-urlrow input[type="url"] {
+    flex: 1;
+    min-width: 120px;
+    min-height: 30px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-image-preview {
+    position: relative;
+    display: inline-flex;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-image-preview img {
+    display: block;
+    max-width: 120px;
+    max-height: 60px;
+    border-radius: 4px;
+    border: 1px solid #dcdcde;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-bar {
+    position: relative;
+    width: 100%;
+    height: 48px;
+    padding-right: 0;
+    border-radius: 2px;
+    border: 1px solid #dcdcde;
+    background: repeating-conic-gradient(#dcdcde 0% 25%, transparent 0% 50%) 0 0 / 12px 12px;
+    cursor: pointer;
+    overflow: visible;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-marker {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+    background-clip: padding-box;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-marker:hover {
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-marker.selected {
+    border-color: var(--ft-kb-theme, #00669b);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--ft-kb-theme, #00669b);
+}
+
+/* Ряд настроек градиента: поля-колонки в ряд, лейбл над инпутом,
+   низ блоков выровнен по нижней кромке. */
+.ft-settings-page .ft-bg-control .ft-bg-grad-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+/* Поле градиента: лейбл ВСЕГДА над инпутом, при любой ширине */
+.ft-settings-page .ft-bg-control .ft-bg-grad-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+/* Внутри поля «Угол» круг, число и знак градуса стоят в один ряд */
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* «Сбросить» — последний элемент того же ряда, сразу за полем «Угол».
+   Без margin-left:auto кнопка не прижимается к правому краю. */
+.ft-settings-page .ft-bg-control .ft-bg-grad-reset {
+    flex: 0 0 auto;
+    margin-left: 0;
+    align-self: flex-end;
+}
+
+/* Кнопки-ссылки (не «Сбросить»): «Вернуть стандартную» и т.п. */
+.ft-settings-page .ft-text-reset {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--ft-kb-theme, #00669b);
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: none;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.ft-settings-page .ft-text-reset:hover {
+    color: #044a7a;
+    background: none;
+    border: 0;
+}
+
+/* Лейбл поля градиента («Тип», «Угол») — те же классы, что у полей ряда
+   «Заголовок» в настройках шапки (.components-base-control__label +
+   .ft-phs-caption), поэтому вид, цвет и насыщенность совпадают. Собственных
+   правил для .ft-bg-grad-label здесь нет намеренно: любое переопределение
+   font-size/color снова разъедет подписи. */
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle {
+    width: 70px !important;
+    min-height: 30px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-circle {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border: 1px solid var(--wp-components-color-gray-600, #8d8d8d);
+    border-radius: 50%;
+    box-sizing: border-box;
+    cursor: grab;
+    overflow: hidden;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-circle:active {
+    cursor: grabbing;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-circle:focus-visible {
+    outline: 1px solid var(--ft-kb-theme, #00669b);
+    outline-offset: 2px;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-circle-indicator-wrapper {
+    position: absolute;
+    inset: 0;
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-angle-circle-indicator {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: var(--wp-components-color-accent, var(--ft-kb-theme, #3858e9));
+    transform: translateX(-50%);
+}
+
+.ft-settings-page .ft-bg-control .ft-bg-grad-deg {
+    font-size: 12px;
+    color: #646970;
+}
+
+/* --- Кнопка сохранения --- */
+.ft-settings-page .button-primary,
+.ft-settings-page .components-button.is-primary {
+    background: var(--ft-kb-theme, #00669b);
+    border-color: var(--ft-kb-theme, #00669b);
+    border-radius: 2px;
+    box-shadow: none;
+    font-size: 13px;
+    font-weight: 400;
+    height: 36px;
+    padding: 0 14px;
+}
+
+.ft-settings-page .button-primary:hover {
+    background: #044a7a;
+    border-color: #044a7a;
+}
+
+.ft-settings-page .ft-save-button-row {
+    display: flex;
+    justify-content: flex-start;
+    margin: 4px 0 0;
+}
+
+/* --- Вкладки состояния (адаптация мелких контролов) --- */
+/* Пунктирная рамка вокруг содержимого вкладок состояний —
+   чтобы было видно, к какой вкладке относится блок полей. */
+.ft-settings-page .ft-state-group {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 4px;
+    background: #fcfcfc;
+}
+
+.ft-settings-page .ft-state-cell[data-state="normal"] .ft-state-group[data-group-state="normal"],
+.ft-settings-page .ft-state-cell[data-state="active"] .ft-state-group[data-group-state="active"],
+.ft-settings-page .ft-state-cell[data-state="hover"] .ft-state-group[data-group-state="hover"] {
+    display: flex;
+}
+/* Старые блоки «Граница» не выводят data-state на .ft-state-cell,
+   поэтому обычная группа отображается отдельно от вкладок состояний. */
+.ft-settings-page .ft-state-cell:not([data-state]) .ft-state-group[data-group-state="normal"] {
+    display: flex;
+}
+.ft-settings-page .ft-state-cell[data-state="hover"] .ft-state-group[data-group-state="normal"] {
+    display: none;
+}
+
+.ft-settings-page .ft-carousel-button-settings > .ft-state-group {
+    gap: 0;
+    border-style: solid;
+    border-color: #dcdcde;
+    background: #f6f7f7;
+}
+
+.ft-settings-page .ft-carousel-button-setting + .ft-carousel-button-setting {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #dcdcde;
+}
+
+.ft-settings-page .ft-carousel-button-setting > .components-base-control__label {
+    margin: 0 0 8px;
+    color: #1d2327;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ft-settings-page .ft-carousel-button-setting > .components-base-control__help {
+    margin-top: 8px;
+}
+
+.ft-settings-page .ft-image-style-settings .ft-carousel-button-setting .ft-measure,
+.ft-settings-page .ft-image-style-settings .ft-carousel-button-setting .ft-measure-row {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-carousel-button-setting[data-carousel-button-setting="border"] .ft-measure,
+.ft-settings-page .ft-carousel-button-hover-border,
+.ft-settings-page .ft-carousel-button-radius .ft-measure {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-carousel-button-setting .ft-state-group {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.ft-settings-page #ft-album-captions-heading {
+    display: block;
+    margin-top: 16px;
+}
+
+/* --- word-break для описаний, чтобы аккуратно переносились --- */
+.ft-settings-page .components-base-control__help a {
+    color: var(--ft-kb-theme, #00669b);
+}
+
+/* ==========================================================================
+   Settings: видимость таб-панелей и служебные блоки
+   (перенесено из инлайн-блоков страниц «Семейное древо» / «Семейный архив»)
+   ========================================================================== */
+.ft-settings-page .ft-tab-panel {
+    display: none;
+}
+
+.ft-settings-page .ft-tab-panel.active {
+    display: block;
+}
+
+.ft-settings-page .ft-settings-description {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: #f0f6fc;
+    border: 1px solid #c5d9ed;
+    border-left: 4px solid #2271b1;
+    border-radius: 4px;
+    color: #1d2327;
+}
+
+.ft-settings-page .ft-genius_plugin-notice {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    background: #f0f6fc;
+    border: 1px solid #c5d9ed;
+    border-left: 4px solid #2271b1;
+    border-radius: 4px;
+    color: #1d2327;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ft-settings-page .ft-genius_plugin-separator {
+    height: 16px;
+}
+
+/* Лента альбомов: между блоками ровно 16px. Разделитель между блоками уже
+   даёт 16px, поэтому у обёртки блока (прямого потомка .components-panel__body-content)
+   отступ снизу убираем — иначе блоки разъезжаются на 32px. Вложенные обёртки
+   (внутри .ft-card-size-row, .ft-state-cell и т.п.) сохраняют свои отступы. */
+#ft-tab-album-feed .components-panel__body-content > .components-base-control {
+    margin-bottom: 0;
+}
+
+/* --- Отзывчивые группы (ft-resp-*) --- */
+.ft-settings-page .ft-resp-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ft-settings-page .ft-resp-tabs {
+    display: inline-flex;
+    border: 1px solid #c3c4c7;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.ft-settings-page .ft-resp-tabs .ft-resp-tab {
+    padding: 6px 14px;
+    border: none;
+    background: #f6f7f7;
+    color: #50575e;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ft-settings-page .ft-resp-tabs .ft-resp-tab + .ft-resp-tab {
+    border-left: 1px solid #c3c4c7;
+}
+
+.ft-settings-page .ft-resp-tabs .ft-resp-tab:hover {
+    background: #f0f6fc;
+    color: #135e96;
+}
+
+.ft-settings-page .ft-resp-tabs .ft-resp-tab.active {
+    background: #2271b1;
+    color: #fff;
+}
+
+/* --- Шестнадцатеричный ввод цвета --- */
+.ft-settings-page .ft-color-hex {
+    font-family: monospace;
+    text-transform: lowercase;
+}
+
+.ft-settings-page .ft-state-tabs {
+    margin-bottom: 10px;
+}
+
+/* --- Табы «Обычный / При наведении» в виде сегмент-контрола (как «Классический/Градиент», синие оттенки) --- */
+.ft-settings-page .ft-state-tabs {
+    display: inline-flex;
+    width: auto;
+    max-width: 100%;
+    padding: 2px;
+    margin: 0 0 10px;
+    background: #e7f0f9;
+    border: 0;
+    border-radius: 18px;
+    gap: 2px;
+}
+
+.ft-settings-page .ft-state-tabs .ft-layout-tab {
+    flex: 0 0 auto;
+    min-height: 28px;
+    margin: 0;
+    padding: 4px 18px;
+    background: none;
+    border: 0;
+    border-radius: 16px;
+    box-shadow: none;
+    color: #3c586b;
+    font-size: 12px;
+    line-height: 1.4;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ft-settings-page .ft-state-tabs .ft-layout-tab:first-child,
+.ft-settings-page .ft-state-tabs .ft-layout-tab:last-child {
+    border: 0;
+    border-radius: 16px;
+}
+
+.ft-settings-page .ft-state-tabs .ft-layout-tab:hover {
+    background: rgba(34, 113, 177, 0.12);
+    color: #135e96;
+}
+
+.ft-settings-page .ft-state-tabs .ft-layout-tab input:checked + span {
+    background: none;
+    color: inherit;
+    box-shadow: none;
+}
+
+.ft-settings-page .ft-state-tabs .ft-layout-tab:has(input:checked) {
+    background: #2271b1;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+/* Standalone choice groups use the same pill controls and wrap on narrow panels. */
+.ft-settings-page .ft-choice-tabs {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+}
+
+.ft-settings-page .ft-choice-tabs .ft-layout-tab {
+    flex: 0 1 auto;
+    max-width: 100%;
+    min-height: 32px;
+    padding: 5px 16px;
+    background: #e7f0f9;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.ft-settings-page .ft-choice-tabs .ft-layout-tab:first-child,
+.ft-settings-page .ft-choice-tabs .ft-layout-tab:last-child {
+    border: 0;
+    border-radius: 16px;
+}
+
+.ft-settings-page .ft-choice-tabs .ft-layout-tab:hover {
+    background: rgba(34, 113, 177, 0.12);
+    color: #135e96;
+}
+
+.ft-settings-page .ft-choice-tabs .ft-layout-tab:has(input:checked) {
+    background: #2271b1;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.ft-settings-page .ft-album-layout-settings-panel[hidden] {
+    display: none !important;
+}
+
+.ft-settings-page .ft-album-layout-settings-panel:not([hidden]) {
+    padding: 4px 16px 16px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.ft-settings-page .ft-album-caption-position-settings > .components-base-control__label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.ft-settings-page .ft-album-caption-position-settings > .ft-choice-tabs {
+    margin-bottom: 10px;
+}
+
+.ft-settings-page .ft-album-layout-annotation {
+    margin: 0;
+    padding: 10px 12px;
+    background: #f0f6fc;
+    border-left: 3px solid #2271b1;
+    border-radius: 3px;
+    color: #3c434a;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.ft-settings-page .ft-album-layout-settings-panel > .ft-album-layout-settings-group:first-child > .ft-genius_plugin-separator {
+    display: none;
+}
+
+.ft-settings-page .ft-album-layout-settings-group:not(.ft-album-row-carousel) {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+}
+
+.ft-settings-page .ft-album-layout-settings-group:not(.ft-album-row-carousel) > .ft-genius_plugin-separator {
+    display: none;
+}
+
+.ft-settings-page .ft-album-layout-settings-group > .components-base-control__label {
+    margin-bottom: 8px;
+    color: #1d2327;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ft-settings-page .ft-album-layout-settings-group > .components-base-control {
+    margin: 0;
+}
+
+.ft-settings-page .ft-album-row-carousel {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+}
+
+.ft-settings-page .ft-album-row-carousel > .ft-genius_plugin-separator {
+    height: 0;
+    margin: 14px 0;
+    border-top: 1px solid #f0f0f1;
+}
+
+.ft-settings-page .ft-album-row-carousel > .ft-genius_plugin-separator:first-child {
+    display: none;
+}
+
+#ft-bg-image-preview img {
+    display: block;
+    width: 100%;
+}
+
+/* --- Сортировка разделов (ft-reorder-sections) --- */
+.ft-settings-page .ft-reorder-sections tr.ft-section-edit-row td {
+    vertical-align: middle;
+    padding: 10px 8px;
+}
+
+.ft-settings-page .ft-reorder-sections .ft-section-desc-cell {
+    word-break: break-word;
+}
+
+.ft-settings-page .ft-reorder-sections tr.ft-section-edit-row {
+    cursor: move;
+}
+
+.ft-settings-page .ft-reorder-sections tr.ft-section-edit-row.ft-row-dragging {
+    opacity: 0.45;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.ft-settings-page .ft-reorder-sections tr.ft-section-row-placeholder td {
+    height: 18px;
+    border: 2px dashed #2271b1;
+    background: rgba(34, 113, 177, 0.07);
+}
+
+.ft-settings-page .ft-section-thumb-cell {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #dcdcde;
+    background: #f6f7f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ft-settings-page .ft-section-thumb-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.ft-settings-page .ft-section-thumb-cell svg {
+    width: 26px;
+    height: 26px;
+    color: #787c82;
+}
+
+/* --- Переключатели разделов (ft-section-toggle-*) --- */
+.ft-settings-page .ft-section-toggle-cell {
+    white-space: nowrap;
+}
+
+.ft-settings-page .ft-section-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.ft-settings-page .ft-section-toggle:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.ft-settings-page .ft-section-toggle-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: #d63638;
+    transition: background 0.2s;
+}
+
+.ft-settings-page .ft-section-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: left 0.2s;
+}
+
+.ft-settings-page .ft-section-toggle--on .ft-section-toggle-track {
+    background: #00a32a;
+}
+
+.ft-settings-page .ft-section-toggle--on .ft-section-toggle-thumb {
+    left: 18px;
+}
+
+.ft-settings-page .ft-section-toggle-label {
+    color: #d63638;
+    font-weight: 500;
+}
+
+.ft-settings-page .ft-section-toggle--on .ft-section-toggle-label {
+    color: #00a32a;
+}
+
+/* --- Экран «Лицензия» (страница древа) --- */
+.ft-settings-page .ft-features-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ft-settings-page .ft-features-list li {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 12px;
+    color: #1d2327;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.ft-settings-page .ft-features-list li:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 18px;
+    height: 18px;
+    background: #00a32a;
+    border-radius: 50%;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center;
+}
+
+.ft-settings-page .license-info {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1d2327;
+}
+
+.ft-settings-page .license-info-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 8px;
+}
+
+.ft-settings-page .license-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ft-settings-page .license-status.pro-active {
+    color: #00a32a;
+    background: #edfaef;
+}
+
+.ft-settings-page .license-status.pro-inactive {
+    color: #d63638;
+    background: #fcf0f1;
+}
+
+.ft-settings-page .license-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ft-settings-page .gedcom-buttons-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+}
+
+.ft-settings-page .gedcom-group-selector label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1d2327;
+}
+
+.ft-settings-page .gedcom-group-selector select {
+    width: 100%;
+}
+
+.ft-settings-page .gedcom-button-wrapper {
+    margin-bottom: 12px;
+}
+
+.ft-settings-page .gedcom-button-wrapper .button {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 4px;
+}
+
+.ft-settings-page .gedcom-import-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ft-settings-page .gedcom-file-input {
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    border: 1px solid var(--ft-kb-border);
+    border-radius: 2px;
+    background: #fff;
+    font-size: 13px;
+}
+
+.ft-settings-page .gedcom-submit {
+    width: 100%;
+    text-align: center;
+}
+
+.ft-settings-page .ft-upgrade-cta {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f1;
+    text-align: center;
+}
+
+/* ========== Модальное окно согласия с документами плагина (ФЗ-152) ========== */
+.ft-terms-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    background: rgba(16, 21, 27, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+.ft-terms-modal {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    max-width: 920px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.ft-terms-modal-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid #dcdcde;
+    background: #f0f6fc;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.ft-terms-modal-header .dashicons {
+    font-size: 34px;
+    width: 34px;
+    height: 34px;
+    color: #2271b1;
+}
+.ft-terms-modal-header h2 {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.3;
+}
+.ft-terms-modal-header p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #50575e;
+}
+.ft-terms-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    line-height: 1.6;
+    font-size: 14px;
+}
+.ft-terms-modal-body h3 {
+    margin: 24px 0 10px;
+    font-size: 15px;
+    color: #2271b1;
+}
+.ft-terms-modal-body h3:first-child {
+    margin-top: 0;
+}
+.ft-terms-modal-body p {
+    margin: 0 0 10px;
+}
+.ft-terms-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #dcdcde;
+    background: #f6f7f7;
+    flex-shrink: 0;
+}
+.ft-terms-accept {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    margin: 0 0 10px;
+}
+.ft-terms-accept input[type="checkbox"] {
+    margin: 1px 0 0;
+}
+.ft-terms-accept.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.ft-terms-hint {
+    margin: 0;
+    font-size: 12px;
+    color: #646970;
+}
+.ft-terms-hint.warning {
+    color: #d63638;
+}
+.ft-terms-submit {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+body.ft-terms-locked {
+    overflow: hidden;
+}
+.ft-terms-view-overlay {
+    align-items: flex-start;
+    padding-top: 40px;
+}
+.ft-terms-doc-section {
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #dcdcde;
+}
+.ft-terms-doc-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.ft-terms-doc-section.ft-terms-doc-active {
+    background: #f0f6fc;
+    margin: -12px -8px 16px;
+    padding: 12px 8px;
+    border-radius: 6px;
+    border-bottom: 2px solid #2271b1;
+}
+.ft-hint .ft-terms-view-link {
+    display: inline-block;
+    max-width: 100%;
+    width: auto;
+    margin: 8px 0 0;
+    padding: 6px 12px;
+    height: auto;
+    min-height: 0;
+    line-height: 1.4;
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+.ft-hint .ft-terms-view-link + .ft-terms-view-link {
+    margin-top: 8px;
+}
+
+/* =====================================================================
+   Табы устройств (Десктоп / Планшет / Мобильный) — стиль Kadence.
+   Группа кнопок с иконками + обрамление, показывающее, что все настройки
+   внутри относятся к выбранному устройству.
+   ===================================================================== */
+.ft-settings-page .ft-device-options {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0 0 12px;
+    padding: 3px;
+    background: #f0f0f1;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.ft-settings-page .ft-device-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 34px;
+    height: 30px;
+    padding: 0 9px;
+    color: #646970;
+    background: none;
+    border: 0;
+    border-radius: 3px;
+    box-shadow: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ft-settings-page .ft-device-btn__label {
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.ft-settings-page .ft-device-btn:hover {
+    background: rgba(34, 113, 177, 0.10);
+    color: #135e96;
+}
+
+.ft-settings-page .ft-device-btn.is-active {
+    background: #2271b1;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20);
+}
+
+.ft-settings-page .ft-device-btn.is-active:hover {
+    background: #135e96;
+    color: #fff;
+}
+
+.ft-settings-page .ft-device-btn .dashicons {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* Обрамление: визуально отделяет настройки выбранного устройства. */
+.ft-settings-page .ft-device-frame {
+    padding: 4px 16px 16px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    border-top: 0;
+}
+
+.ft-settings-page .ft-phs-block + .ft-phs-block {
+    margin-top: 4px;
+}
+
+/* Портрет (перед табами) и Подпись (после панели) — разделы того же уровня,
+   что и панель устройств, поэтому отбиваются от неё и друг от друга обычными
+   16px, а не тесными 4px, оставленными между блоками ВНУТРИ одного устройства.
+   Важно: между «Портретом» и рамкой с настройками стоят сами кнопки табов
+   (.ft-device-options), поэтому отбивать надо их — селектор через
+   .ft-device-frame здесь не сработал бы. */
+.ft-settings-page .ft-phs-block + .ft-device-options {
+    margin-top: 16px;
+}
+
+.ft-settings-page .ft-device-frame + .ft-phs-block {
+    margin-top: 16px;
+}
+
+    /* Название блока внутри табов «Обычный / При наведении» — тот же стиль,
+   что и везде, отличается только отступом сверху (общий .ft-phs-sublabel). */
+.ft-settings-page .ft-state-group > .ft-phs-sublabel,
+.ft-settings-page .ft-phs-statebox > .ft-phs-sublabel {
+    margin-top: 12px;
+}
+
+/* Пояснение про наследование от Десктопа во вкладках Планшет / Мобильные. */
+.ft-settings-page .ft-phs-inherit-note {
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    border-left: 3px solid #c3c4c7;
+    background: #f6f7f7;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #50575e;
+}
+
+/* Тулбар «Выравнивание по горизонтали» (слева / по центру / справа).
+   Внешний вид повторяет components-toolbar из админки, но своими классами,
+   чтобы не зависеть от того, подгружены ли стили @wordpress/components. */
+.ft-settings-page .ft-align {
+    margin: 0 0 14px;
+}
+
+/* Подпись — название блока, вид берётся из общего правила
+   .components-base-control__label. Здесь только отступ до тулбара:
+   селектор с .ft-align, потому что .ft-phs-caption обнуляет margin,
+   а тулбар идёт следующим элементом, а не в .ft-phs-cell с gap. */
+.ft-settings-page .ft-align .ft-align__caption {
+    margin: 0 0 6px;
+}
+
+.ft-settings-page .ft-align__toolbar {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    background: #f6f7f7;
+    overflow: hidden;
+}
+
+.ft-settings-page .ft-align__item {
+    display: flex;
+}
+
+.ft-settings-page .ft-align__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-right: 1px solid #c3c4c7;
+    background: transparent;
+    color: #1d2327;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+.ft-settings-page .ft-align__item:last-child .ft-align__btn {
+    border-right: 0;
+}
+
+.ft-settings-page .ft-align__btn:hover {
+    background: #e8e9ea;
+    color: #1d2327;
+}
+
+.ft-settings-page .ft-align__btn.is-pressed,
+.ft-settings-page .ft-align__btn[aria-pressed="true"] {
+    background: #1d2327;
+    color: #fff;
+}
+
+.ft-settings-page .ft-align__btn svg {
+    fill: currentColor;
+    pointer-events: none;
+}
+
+.ft-settings-page .ft-align__help {
+    margin: 6px 0 0;
+    font-size: 12px;
+}
+
+/* Блок «Граница» одиночным контролом: базовый .ft-measure имеет width: 50%,
+   а во всю ширину его растягивает только .ft-measure-row, которого здесь нет.
+   В состояниях ссылок граница идёт сразу за рядом «Текст ссылки», поэтому
+   отбиваем её на 16px — тот же отступ, что между блоками разделов.
+   Половину добирает gap: 8px у .ft-state-group, 8px маржина сверху. */
+.ft-settings-page .ft-phs-statebox,
+.ft-settings-page .ft-phs-statebox > .ft-measure {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-state-group > .ft-phs-statebox {
+    margin-top: 8px;
+}
+
+/* Габариты блока: отступ 16px от заголовка раздела. */
+.ft-settings-page .ft-measure-row.ft-phs-boxrow {
+    margin-top: 16px;
+}
+
+/* Габариты ссылок стоят над табами — отбиваем сами табы от них. */
+.ft-settings-page .ft-phs-block > .ft-state-cell {
+    margin-top: 16px;
+}
+
+/* Названия блоков внутри разделов («Фон ссылки», «Текст ссылки», «Граница»,
+   «Форма») уже получили единый стиль выше — здесь только отступ сверху,
+   отделяющий название блока от предыдущего содержимого. */
+.ft-settings-page .ft-phs-sublabel {
+    margin: 12px 0 8px;
+}
+
+/* Подзаголовки внутри «Настроек текста» карточек — с тем же отступом,
+   но без верхнего, чтобы не отрываться от своего заголовка. */
+.ft-settings-page .ft-phs-sublabel--sm {
+    margin: 0 0 8px;
+}
+
+/* Подписи полей в строках адаптивных настроек («Форма», «Граница»,
+   «Выравнивание по горизонтали») — названия БЛОКОВ, а не разделов,
+   поэтому остаются в общем приглушённом стиле. */
+.ft-settings-page .ft-phs-caption {
+    display: block;
+    margin: 0;
+}
+
+.ft-settings-page .ft-phs-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+.ft-settings-page .ft-album-shadow-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-album-shadow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 70px;
+}
+
+.ft-settings-page .ft-album-shadow-field--color {
+    min-width: 180px;
+    flex: 0 1 220px;
+}
+
+.ft-settings-page .ft-album-shadow-control .ft-state-group {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.ft-settings-page .ft-album-shadow-device-controls {
+    margin-top: 16px;
+}
+
+.ft-settings-page .components-base-control.ft-album-shadow-control + .components-base-control.ft-album-shadow-control {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.ft-settings-page .ft-device-panel .ft-phs-block.ft-album-caption-text-settings {
+    margin-top: 16px;
+}
+
+.ft-settings-page .ft-phs-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ft-settings-page .ft-phs-cell--reset {
+    justify-content: flex-end;
+}
+
+.ft-settings-page .ft-phs-cell--reset .ft-phs-caption {
+    color: transparent;
+    user-select: none;
+}
+
+.ft-settings-page .ft-phs-cell select {
+    min-width: 150px;
+}
+
+.ft-settings-page .ft-phs-cell--color select,
+.ft-settings-page .ft-phs-cell--size select {
+    min-width: 0;
+}
+
+/* Чекбокс «Добавить подчеркивание» / «Добавить разделители» и его ряд
+   с цветом и толщиной линии. Скрытый ряд управляется из JS (jQuery show/hide),
+   поэтому состояние хранится и в классе is-on — на случай ручной правки. */
+.ft-settings-page .ft-phs-checkbox-block {
+    margin-top: 16px;
+}
+
+.ft-settings-page .ft-phs-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ft-settings-page .ft-phs-checkbox {
+    margin: 0;
+}
+
+.ft-settings-page .ft-phs-checkbox-block > .components-base-control__help {
+    margin: 6px 0 0;
+}
+
+.ft-settings-page .ft-phs-underline-settings:not(.is-on) {
+    display: none;
+}
+
+.ft-settings-page .ft-phs-underline-settings.is-on {
+    margin-top: 12px;
+}
+
+.ft-settings-page .ft-phs-color-row,
+.ft-settings-page .ft-phs-size-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ft-settings-page .ft-phs-color-row input[type="text"] {
+    width: 110px;
+}
+
+.ft-settings-page .ft-catalog-letter-border,
+.ft-settings-page .ft-catalog-letter-border > .ft-measure {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.ft-settings-page .ft-phs-size-row input[type="number"] {
+    width: 82px;
+}
+
+.ft-settings-page .ft-phs-unit {
+    font-size: 12px;
+    color: #646970;
 }
