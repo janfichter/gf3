@@ -22897,6 +22897,7 @@ endforeach;
     </div>
     </div>
     </div>
+    </div>
     <div class="ft-settings-aside">
         <div class="ft-hint active" data-hint="ft-tab-general">
             <div class="ft-hint-title"><?php echo esc_html__('Настройки приватности', 'genius-family-tree'); ?></div>
