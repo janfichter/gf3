@@ -51,6 +51,9 @@ class Family_Tree_Post_Type {
         );
 
         register_post_type('family_member', $args);
+
+        // Шаблоны страницы темы доступны для типа записи family_member
+        add_post_type_support('family_member', 'page-templates');
         
         // Регистрация типа записи "Семейные группы"
         $group_labels = array(
@@ -97,6 +100,136 @@ class Family_Tree_Post_Type {
         );
 
         register_post_type('family_group', $group_args);
+
+        // Закрытие REST API от утечки персональных данных (ФЗ-152):
+        // анонимные и ограниченные посетители получают только публичные данные
+        // с применением настроек приватности и маскировки полей.
+        add_filter('rest_family_member_query', array(__CLASS__, 'rest_query_privacy'), 10, 2);
+        add_filter('rest_prepare_family_member', array(__CLASS__, 'rest_prepare_privacy'), 10, 3);
+    }
+
+    /**
+     * Исключает скрытые персоны из выборки REST API для посетителей
+     * без полного доступа к древу.
+     */
+    public static function rest_query_privacy($args, $request) {
+        if (!function_exists('ft_privacy_visibility') || ft_privacy_visibility() === 'full') {
+            return $args;
+        }
+        if (current_user_can('edit_posts')) {
+            return $args;
+        }
+        $private_ids = self::get_private_member_ids();
+        if (empty($private_ids)) {
+            return $args;
+        }
+        $exclude = isset($args['post__not_in']) && is_array($args['post__not_in']) ? $args['post__not_in'] : array();
+        $args['post__not_in'] = array_values(array_unique(array_merge($exclude, $private_ids)));
+        return $args;
+    }
+
+    /**
+     * Применяет маскировку полей к записи из REST API согласно
+     * настройкам приватности (стиль семейного древа: маскированное имя,
+     * скрытое фото, заглушка для скрытых персон).
+     */
+    public static function rest_prepare_privacy($response, $post, $request) {
+        if (!function_exists('ft_privacy_visibility') || ft_privacy_visibility() === 'full') {
+            return $response;
+        }
+        if (current_user_can('edit_post', $post->ID)) {
+            return $response;
+        }
+        if (!function_exists('ft_person_is_private')) {
+            return $response;
+        }
+        $data = $response->get_data();
+
+        if (ft_person_is_private($post->ID)) {
+            $hidden = function_exists('ft_privacy_hidden_label') ? ft_privacy_hidden_label() : '';
+            $data['title']['rendered'] = $hidden;
+            $data['content']['rendered'] = '';
+            $data['excerpt']['rendered'] = '';
+            $data['featured_media'] = 0;
+            $data['slug'] = '';
+            $response->set_data($data);
+            return $response;
+        }
+
+        if (function_exists('ft_hide_field')) {
+            if (ft_hide_field('name_parts') && function_exists('ft_person_display_name')) {
+                $data['title']['rendered'] = ft_person_display_name(
+                    $post->ID,
+                    isset($data['title']['rendered']) ? $data['title']['rendered'] : get_the_title($post->ID)
+                );
+            }
+            if (ft_hide_field('photo')) {
+                $data['featured_media'] = 0;
+                if (isset($data['media_details'])) {
+                    $data['media_details'] = array();
+                }
+                if (isset($data['featured_media_src'])) {
+                    $data['featured_media_src'] = '';
+                }
+            }
+        }
+        $response->set_data($data);
+        return $response;
+    }
+
+    /**
+     * Возвращает ID всех скрытых персон: с персональным флагом приватности
+     * либо входящих в приватные семейные группы.
+     */
+    private static function get_private_member_ids() {
+        static $cached = null;
+        if (null !== $cached) {
+            return $cached;
+        }
+        $ids = array();
+
+        $q1 = new WP_Query(array(
+            'post_type' => 'family_member',
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+            'post_status' => 'any',
+            'meta_key' => '_family_member_private',
+            'meta_value' => '1',
+            'no_found_rows' => true,
+        ));
+        if (!empty($q1->posts)) {
+            $ids = array_merge($ids, $q1->posts);
+        }
+
+        $q2 = new WP_Query(array(
+            'post_type' => 'family_group',
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+            'post_status' => 'any',
+            'meta_key' => '_family_group_private',
+            'meta_value' => '1',
+            'no_found_rows' => true,
+        ));
+        if (!empty($q2->posts)) {
+            $q3 = new WP_Query(array(
+                'post_type' => 'family_member',
+                'fields' => 'ids',
+                'posts_per_page' => -1,
+                'post_status' => 'any',
+                'meta_query' => array(array(
+                    'key' => '_family_member_group_id',
+                    'value' => $q2->posts,
+                    'compare' => 'IN',
+                )),
+                'no_found_rows' => true,
+            ));
+            if (!empty($q3->posts)) {
+                $ids = array_merge($ids, $q3->posts);
+            }
+        }
+
+        $cached = array_values(array_unique(array_map('intval', $ids)));
+        return $cached;
     }
     
     // Добавляем метод для пересохранения правил пермалинков

@@ -11,6 +11,11 @@ class Family_Tree_Shortcode {
     public static function render_shortcode($atts) {
         self::$shortcode_counter++;
         
+        // При полностью закрытом древе вместо дерева показываем заглушку.
+        if (ft_privacy_visibility() === 'blocked') {
+            return ft_privacy_render_blocked();
+        }
+        
         $center_on_from_url = 0;
         $person_id_from_url = 0;
         if (isset($_GET['center_on']) || isset($_GET['person_id'])) {
