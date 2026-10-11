@@ -6,7 +6,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * Вместо обычного списка записей выводит алфавитный каталог фамилий
  * (тот же вывод, что даёт шорткод [family_surname_catalog]).
  */
-get_header(); ?>
+Family_Tree_Template_Compat::header();
+Family_Tree_Template_Compat::open_content(); ?>
 <div class="content inter">
 <section class="content__inter _container">
 	<?php
@@ -25,6 +26,9 @@ get_header(); ?>
 	</div>
 </section>
 </div>
-<?php get_footer(); ?>
+<?php
+Family_Tree_Template_Compat::close_content();
+Family_Tree_Template_Compat::footer();
+?>
 <?php
 // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound

@@ -3,8 +3,23 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
 /**
  * Шаблон для отображения отдельной персоны
+ *
+ * Контентная часть формируется всегда здесь и внешним видом управляется
+ * только настройками админки. Шапку и подвал берёт тема через
+ * Family_Tree_Template_Compat; выбранный в настройках шаблон темы влияет
+ * лишь на то, какие части темы используются в оболочке.
  */
-get_header('inter'); ?>
+Family_Tree_Template_Compat::header();
+Family_Tree_Template_Compat::open_content(); ?>
+<?php
+// При полностью закрытом древе вместо страницы персоны показываем заглушку
+if (ft_privacy_visibility() === 'blocked') {
+    echo '<div class="content inter"><section class="content__inter _container">' . ft_privacy_render_blocked() . '</section></div>';
+    Family_Tree_Template_Compat::close_content();
+    Family_Tree_Template_Compat::footer();
+    return;
+}
+?>
 <script>
 // Заглушка для предотвращения ошибок других скриптов
 if (typeof window.f3 === 'undefined') {
@@ -16,6 +31,75 @@ if (typeof window.f3 === 'undefined') {
         d3AnimationView: function() {}
     };
 }
+</script>
+<style>
+/* Сайдбар и контентный блок персоны:
+   1) контент выше сайдбара → сайдбар липкий, при необходимости у него появляется своя полоса прокрутки;
+   2) сайдбар >= контента → обычный поток, блоки одинаковой высоты, полосы прокрутки нет (страница скроллится как обычно). */
+.family-member-sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    align-self: flex-start;
+}
+.family-member-layout.ft-layout-content-tall .family-member-sidebar {
+    position: sticky;
+    top: var(--ft-sticky-top, 90px);
+    max-height: calc(100vh - var(--ft-sticky-top, 90px));
+    overflow-y: auto;
+}
+.family-member-layout.ft-layout-sidebar-tall .family-member-sidebar {
+    align-self: stretch;
+}
+@media (max-width: 1024px) {
+    .family-member-layout .family-member-sidebar,
+    .family-member-layout.ft-layout-content-tall .family-member-sidebar,
+    .family-member-layout.ft-layout-sidebar-tall .family-member-sidebar {
+        position: static;
+        max-height: none;
+        overflow: visible;
+        align-self: stretch;
+        order: -1;
+    }
+}
+</style>
+<script>
+(function() {
+    var layout = document.querySelector('.family-member-layout');
+    var sidebar = document.querySelector('.family-member-sidebar');
+    if (!layout || !sidebar) {
+        return;
+    }
+    var content = document.querySelector('.family-member-content-gutenberg');
+    function update() {
+        var nav = document.getElementById('menu') || document.querySelector('.header__nav');
+        var top = 90;
+        if (nav && document.body.classList.contains('fixed-nav')) {
+            top = nav.offsetHeight + 12;
+        }
+        var adminBar = document.getElementById('wpadminbar');
+        if (adminBar && adminBar.offsetHeight > 0) {
+            top = adminBar.offsetHeight + (nav && nav.offsetHeight ? nav.offsetHeight + 12 : 90);
+        }
+        if (sidebar.__ftStickyTop !== top) {
+            sidebar.__ftStickyTop = top;
+            sidebar.style.setProperty('--ft-sticky-top', top + 'px');
+        }
+        // Измеряем натуральные высоты: временно снимаем липкий режим с его max-height.
+        layout.classList.remove('ft-layout-content-tall');
+        var contentH = content ? content.offsetHeight : 0;
+        var sidebarH = sidebar.offsetHeight;
+        // Контент выше сайдбара → липкий сайдбар (со своей прокруткой по необходимости).
+        // Сайдбар >= контента → обычный поток, блоки одинаковой высоты, полосы прокрутки нет.
+        var isSticky = contentH > sidebarH;
+        layout.classList.toggle('ft-layout-content-tall', isSticky);
+        layout.classList.toggle('ft-layout-sidebar-tall', !isSticky);
+    }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    window.addEventListener('load', update);
+})();
 </script>
 <div class="content inter">
 <section class="content__inter _container">
@@ -66,21 +150,28 @@ if (typeof window.f3 === 'undefined') {
             $ft_is_deceased = get_post_meta($ft_person_id, '_family_member_is_deceased', true);
             // Для обратной совместимости: если старый флаг установлен или есть дата смерти, считаем человека умершим
             $ft_deceased_unknown_compat = get_post_meta($ft_person_id, '_family_member_deceased_unknown', true);
-            if ($deceased_unknown_compat || $death_year || $death_month || $death_day) {
-                $is_deceased = 1;
+            if ($ft_deceased_unknown_compat || $ft_death_year || $ft_death_month || $ft_death_day) {
+                $ft_is_deceased = 1;
             }
 
-            // Формируем полное имя
+            // Формируем полное имя (при скрытии отчества/фамилии на публике
+            // остаётся только имя)
+            $ft_hide_name_parts = ft_hide_field('name_parts');
+            $ft_hide_dates = ft_hide_field('dates');
+            $ft_hide_years = ft_hide_field('years');
+            $ft_hide_places = ft_hide_field('places');
             $ft_full_name_parts = array();
             if ($ft_first_name) $ft_full_name_parts[] = $ft_first_name;
-            if ($ft_middle_name) $ft_full_name_parts[] = $ft_middle_name;
-            if ($ft_last_name) $ft_full_name_parts[] = $ft_last_name;
+            if (!$ft_hide_name_parts) {
+                if ($ft_middle_name) $ft_full_name_parts[] = $ft_middle_name;
+                if ($ft_last_name) $ft_full_name_parts[] = $ft_last_name;
+            }
             
             // Формируем имя с девичьей фамилией в скобках
             $ft_full_name_with_maiden = '';
             if (!empty($ft_full_name_parts)) {
                 $ft_full_name_with_maiden = implode(' ', $ft_full_name_parts);
-                if ($ft_maiden_name && $ft_gender === 'female') {
+                if (!$ft_hide_name_parts && $ft_maiden_name && $ft_gender === 'female') {
                     $ft_full_name_with_maiden .= ' (' . $ft_maiden_name . ')';
                 }
             } else {
@@ -89,7 +180,7 @@ if (typeof window.f3 === 'undefined') {
 
             // --- Формируем строку даты рождения ---
             $ft_birth_info = 'Неизвестно';
-            if ($ft_birth_year || $ft_birth_month || $ft_birth_day) {
+            if (!$ft_hide_dates && ($ft_birth_year || $ft_birth_month || $ft_birth_day)) {
                 $ft_birth_parts = array();
                 if ($ft_birth_day) {
                     $ft_birth_parts[] = sprintf('%02d', $ft_birth_day);
@@ -97,13 +188,15 @@ if (typeof window.f3 === 'undefined') {
                 if ($ft_birth_month) {
                     $ft_birth_parts[] = sprintf('%02d', $ft_birth_month);
                 }
-                if ($ft_birth_year) {
+                if ($ft_birth_year && !$ft_hide_years) {
                     $ft_birth_parts[] = $ft_birth_year;
                 }
-                if (count($ft_birth_parts) == 1 && $ft_birth_year) {
+                if (count($ft_birth_parts) == 1 && $ft_birth_year && !$ft_hide_years) {
                      $ft_birth_info = $ft_birth_year;
-                } else {
+                } elseif (count($ft_birth_parts) > 1) {
                     $ft_birth_info = implode('.', $ft_birth_parts);
+                } elseif (count($ft_birth_parts) == 1) {
+                    $ft_birth_info = $ft_birth_parts[0];
                 }
                 
                 if ($ft_birth_old_style) {
@@ -113,7 +206,7 @@ if (typeof window.f3 === 'undefined') {
 
             // --- Формируем строку даты смерти ---
             $ft_death_info = '';
-            if ($ft_is_deceased) {
+            if (!$ft_hide_dates && $ft_is_deceased) {
                 if ($ft_death_year || $ft_death_month || $ft_death_day) {
                     $ft_death_parts = array();
                     if ($ft_death_day) {
@@ -122,13 +215,15 @@ if (typeof window.f3 === 'undefined') {
                     if ($ft_death_month) {
                         $ft_death_parts[] = sprintf('%02d', $ft_death_month);
                     }
-                    if ($ft_death_year) {
+                    if ($ft_death_year && !$ft_hide_years) {
                         $ft_death_parts[] = $ft_death_year;
                     }
-                    if (count($ft_death_parts) == 1 && $ft_death_year) {
+                    if (count($ft_death_parts) == 1 && $ft_death_year && !$ft_hide_years) {
                          $ft_death_info = $ft_death_year;
-                    } else {
+                    } elseif (count($ft_death_parts) > 1) {
                         $ft_death_info = implode('.', $ft_death_parts);
+                    } elseif (count($ft_death_parts) == 1) {
+                        $ft_death_info = $ft_death_parts[0];
                     }
                     
                     if ($ft_death_old_style) {
@@ -139,7 +234,7 @@ if (typeof window.f3 === 'undefined') {
             
             // --- Формируем дату по новому стилю для рождения ---
             $ft_birth_new_info = '';
-            if ($ft_birth_old_style && ($ft_birth_new_year || $ft_birth_new_month || $ft_birth_new_day)) {
+            if (!$ft_hide_dates && $ft_birth_old_style && ($ft_birth_new_year || $ft_birth_new_month || $ft_birth_new_day)) {
                 $ft_birth_new_parts = array();
                 if ($ft_birth_new_day) {
                     $ft_birth_new_parts[] = sprintf('%02d', $ft_birth_new_day);
@@ -147,20 +242,24 @@ if (typeof window.f3 === 'undefined') {
                 if ($ft_birth_new_month) {
                     $ft_birth_new_parts[] = sprintf('%02d', $ft_birth_new_month);
                 }
-                if ($ft_birth_new_year) {
+                if ($ft_birth_new_year && !$ft_hide_years) {
                     $ft_birth_new_parts[] = $ft_birth_new_year;
                 }
-                if (count($ft_birth_new_parts) == 1 && $ft_birth_new_year) {
+                if (count($ft_birth_new_parts) == 1 && $ft_birth_new_year && !$ft_hide_years) {
                     $ft_birth_new_info = $ft_birth_new_year;
-                } else {
+                } elseif (count($ft_birth_new_parts) > 1) {
                     $ft_birth_new_info = implode('.', $ft_birth_new_parts);
+                } elseif (count($ft_birth_new_parts) == 1) {
+                    $ft_birth_new_info = $ft_birth_new_parts[0];
                 }
-                $ft_birth_new_info .= ' <span class="new-style-label">(' . esc_html__('по н. ст.', 'genius-family-tree') . ')</span>';
+                if (!empty($ft_birth_new_info)) {
+                    $ft_birth_new_info .= ' <span class="new-style-label">(' . esc_html__('по н. ст.', 'genius-family-tree') . ')</span>';
+                }
             }
             
             // --- Формируем дату по новому стилю для смерти ---
             $ft_death_new_info = '';
-            if ($ft_death_old_style && ($ft_death_new_year || $ft_death_new_month || $ft_death_new_day)) {
+            if (!$ft_hide_dates && $ft_death_old_style && ($ft_death_new_year || $ft_death_new_month || $ft_death_new_day)) {
                 $ft_death_new_parts = array();
                 if ($ft_death_new_day) {
                     $ft_death_new_parts[] = sprintf('%02d', $ft_death_new_day);
@@ -168,15 +267,19 @@ if (typeof window.f3 === 'undefined') {
                 if ($ft_death_new_month) {
                     $ft_death_new_parts[] = sprintf('%02d', $ft_death_new_month);
                 }
-                if ($ft_death_new_year) {
+                if ($ft_death_new_year && !$ft_hide_years) {
                     $ft_death_new_parts[] = $ft_death_new_year;
                 }
-                if (count($ft_death_new_parts) == 1 && $ft_death_new_year) {
+                if (count($ft_death_new_parts) == 1 && $ft_death_new_year && !$ft_hide_years) {
                     $ft_death_new_info = $ft_death_new_year;
-                } else {
+                } elseif (count($ft_death_new_parts) > 1) {
                     $ft_death_new_info = implode('.', $ft_death_new_parts);
+                } elseif (count($ft_death_new_parts) == 1) {
+                    $ft_death_new_info = $ft_death_new_parts[0];
                 }
-                $ft_death_new_info .= ' <span class="new-style-label">(' . esc_html__('по н. ст.', 'genius-family-tree') . ')</span>';
+                if (!empty($ft_death_new_info)) {
+                    $ft_death_new_info .= ' <span class="new-style-label">(' . esc_html__('по н. ст.', 'genius-family-tree') . ')</span>';
+                }
             }
             
             // --- Получаем родственные связи ---
@@ -249,6 +352,11 @@ if (typeof window.f3 === 'undefined') {
                 $ft_signature_url = wp_get_attachment_url($ft_signature_attachment_id);
             }
         ?>
+        <?php if (ft_person_is_private($ft_person_id)) : ?>
+        <div class="family-member-hidden-page">
+            <?php echo ft_privacy_render_person_hidden(); ?>
+        </div>
+        <?php else : ?>
         <div class="family-member-header">
             <h1><?php echo esc_html($ft_full_name_with_maiden); ?></h1>
             <?php
@@ -272,7 +380,7 @@ if (typeof window.f3 === 'undefined') {
 			<!-- Боковая панель с мета-информацией -->
 			<div class="family-member-sidebar">
 				<div class="family-member-avatar">
-					<?php if (has_post_thumbnail()) : ?>
+					<?php if (has_post_thumbnail() && !ft_hide_field('photo')) : ?>
 						<?php the_post_thumbnail('medium'); ?>
 					<?php else : ?>
 						<img src="<?php echo esc_url(family_tree_get_placeholder($ft_gender)); ?>" 
@@ -284,6 +392,7 @@ if (typeof window.f3 === 'undefined') {
 					<h2>Краткая информация</h2>
 					<table class="family-member-table">
 						<!-- Поля пол, имя, отчество, фамилия, девичья фамилия убраны -->
+						<?php if (!$ft_hide_dates) : ?>
 						<tr>
 							<th>Дата рождения:</th>
 							<td colspan="2">
@@ -293,7 +402,8 @@ if (typeof window.f3 === 'undefined') {
 								<?php endif; ?>
 							</td>
 						</tr>
-						<?php if ($ft_birth_place) : ?>
+						<?php endif; ?>
+						<?php if ($ft_birth_place && !$ft_hide_places) : ?>
 						<tr>
 							<th>Место рождения:</th>
 							<td colspan="2"><?php echo esc_html($ft_birth_place); ?></td>
@@ -303,6 +413,7 @@ if (typeof window.f3 === 'undefined') {
 						// Отображаем информацию о смерти только если человек умер
 						if ($ft_is_deceased) : 
 						?>
+							<?php if (!$ft_hide_dates) : ?>
 							<tr>
 								<th>Дата смерти:</th>
 								<td colspan="2">
@@ -318,26 +429,19 @@ if (typeof window.f3 === 'undefined') {
 									<?php endif; ?>
 								</td>
 							</tr>
+							<?php endif; ?>
 							<?php if ($ft_death_cause) : ?>
 							<tr>
 								<th>Причина смерти:</th>
 								<td colspan="2"><?php echo esc_html($ft_death_cause); ?></td>
 							</tr>
 							<?php endif; ?>
-							<?php if ($ft_death_place) : ?>
+							<?php if ($ft_death_place && !$ft_hide_places) : ?>
 							<tr>
 								<th>Место смерти:</th>
 								<td colspan="2"><?php echo esc_html($ft_death_place); ?></td>
 							</tr>
 							<?php endif; ?>
-						<?php endif; ?>
-						<?php if ($ft_signature_url) : ?>
-						<tr>
-							<th>Подпись:</th>
-							<td colspan="2">
-                                <img src="<?php echo esc_url($ft_signature_url); ?>" alt="<?php echo esc_attr__('Подпись', 'genius-family-tree'); ?>" class="signature-image" />
-							</td>
-						</tr>
 						<?php endif; ?>
 					</table>
 				</div>
@@ -353,9 +457,13 @@ if (typeof window.f3 === 'undefined') {
                         <tr>
                             <th>Отец:</th>
                             <td colspan="2">
-                                <a href="<?php echo esc_url(get_permalink($ft_father_id)); ?>">
-                                    <?php echo esc_html(get_the_title($ft_father_id)); ?>
-                                </a>
+                                <?php if (ft_person_is_private($ft_father_id)) : ?>
+                                    <span class="family-tree-hidden-member"><?php echo esc_html(ft_privacy_hidden_label()); ?></span>
+                                <?php else : ?>
+                                    <a href="<?php echo esc_url(get_permalink($ft_father_id)); ?>">
+                                        <?php echo esc_html(ft_person_display_name($ft_father_id, get_the_title($ft_father_id))); ?>
+                                    </a>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endif; endif; ?>
@@ -366,9 +474,13 @@ if (typeof window.f3 === 'undefined') {
                         <tr>
                             <th>Мать:</th>
                             <td colspan="2">
-                                <a href="<?php echo esc_url(get_permalink($ft_mother_id)); ?>">
-                                    <?php echo esc_html(get_the_title($ft_mother_id)); ?>
-                                </a>
+                                <?php if (ft_person_is_private($ft_mother_id)) : ?>
+                                    <span class="family-tree-hidden-member"><?php echo esc_html(ft_privacy_hidden_label()); ?></span>
+                                <?php else : ?>
+                                    <a href="<?php echo esc_url(get_permalink($ft_mother_id)); ?>">
+                                        <?php echo esc_html(ft_person_display_name($ft_mother_id, get_the_title($ft_mother_id))); ?>
+                                    </a>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endif; endif; ?>
@@ -384,14 +496,18 @@ if (typeof window.f3 === 'undefined') {
 							$ft_sibling_post = $ft_sibling_data['post'];
 							$ft_relation_type = $ft_sibling_data['relation_type'];
 						?>
-						<li>
+<li>
+						<?php if (ft_person_is_private($ft_sibling_id)) : ?>
+							<span class="family-tree-hidden-member"><?php echo esc_html(ft_privacy_hidden_label()); ?></span>
+						<?php else : ?>
 							<a href="<?php echo esc_url(get_permalink($ft_sibling_id)); ?>">
-								<?php echo esc_html(get_the_title($ft_sibling_id)); ?>
+								<?php echo esc_html(ft_person_display_name($ft_sibling_id, get_the_title($ft_sibling_id))); ?>
 							</a>
 							<?php if (!empty($ft_relation_type)) : ?>
 								<span class="sibling-relation-type">(<?php echo esc_html($ft_relation_type); ?>)</span>
 							<?php endif; ?>
-						</li>
+						<?php endif; ?>
+					</li>
 						<?php endforeach; ?>
 					</ul>
 				</div>
@@ -441,9 +557,12 @@ if (typeof window.f3 === 'undefined') {
 										}
 									}
 						?>
-						<li>
+<li>
+						<?php if (ft_person_is_private($ft_spouse_data['id'])) : ?>
+							<span class="family-tree-hidden-member"><?php echo esc_html(ft_privacy_hidden_label()); ?></span>
+						<?php else : ?>
 							<a href="<?php echo esc_url(get_permalink($ft_spouse_data['id'])); ?>">
-								<?php echo esc_html(get_the_title($ft_spouse_data['id'])); ?>
+								<?php echo esc_html(ft_person_display_name($ft_spouse_data['id'], get_the_title($ft_spouse_data['id']))); ?>
 							</a>
 							<?php if (!empty($ft_marriage_info) || !empty($ft_spouse_data['divorced_unknown']) || !empty($ft_divorce_info)) : ?>
                                 <div class="spouse-dates">
@@ -455,7 +574,8 @@ if (typeof window.f3 === 'undefined') {
 									<?php endif; ?>
 								</div>
 							<?php endif; ?>
-						</li>
+						<?php endif; ?>
+					</li>
 						<?php endif; endif; endforeach; ?>
 					</ul>
 				</div>
@@ -469,22 +589,60 @@ if (typeof window.f3 === 'undefined') {
 							$ft_child = get_post($ft_child_id);
 							if ($ft_child) :
 						?>
-						<li>
+<li>
+						<?php if (ft_person_is_private($ft_child_id)) : ?>
+							<span class="family-tree-hidden-member"><?php echo esc_html(ft_privacy_hidden_label()); ?></span>
+						<?php else : ?>
 							<a href="<?php echo esc_url(get_permalink($ft_child_id)); ?>">
-								<?php echo esc_html(get_the_title($ft_child_id)); ?>
+								<?php echo esc_html(ft_person_display_name($ft_child_id, get_the_title($ft_child_id))); ?>
 							</a>
-						</li>
+						<?php endif; ?>
+					</li>
 						<?php endif; endforeach; ?>
 					</ul>
 				</div>
 				<?php endif; ?>
+
+				<?php if ($ft_signature_url) : ?>
+				<div class="family-member-signature">
+					<h2>Подпись</h2>
+					<div class="family-member-signature__image">
+						<img src="<?php echo esc_url($ft_signature_url); ?>" alt="<?php echo esc_attr__('Подпись', 'genius-family-tree'); ?>" class="signature-image" />
+					</div>
+				</div>
+				<?php endif; ?>
 			</div>
 		</div>
+        <?php
+        // === Фотоальбомы: режим отображения задан в метабоксе персоны ===
+        $ft_albums = ft_get_albums($ft_person_id);
+        ?>
+        <?php if (!empty($ft_albums)) :
+            echo Family_Tree_Plugin::get_instance()->render_person_albums_section($ft_person_id, array(), true);
+        endif; ?>
+        <?php
+        // === Остальные разделы семейного архива персоны (Документы, Пресса, Письма, кастомные) ===
+        foreach (ft_get_archive_sections() as $ft_sec_id => $ft_sec_cfg) {
+            if ('photoalbums' === $ft_sec_id || empty($ft_sec_cfg['enabled'])) {
+                continue;
+            }
+            $ft_sec_albums = ft_get_albums($ft_person_id, $ft_sec_id);
+            $ft_sec_albums = array_values(array_filter($ft_sec_albums, function($a) { return !empty($a['photos']); }));
+            if (empty($ft_sec_albums)) {
+                continue;
+            }
+            echo Family_Tree_Plugin::get_instance()->render_person_albums_section($ft_person_id, array(), true, $ft_sec_id); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML рендера секции
+        }
+        ?>
+        <?php endif; ?>
         <?php endwhile; ?>
     </div>
 </div>
 </section>
 </div>
-<?php get_footer(); ?>
+<?php
+Family_Tree_Template_Compat::close_content();
+Family_Tree_Template_Compat::footer();
+?>
 <?php
 // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
