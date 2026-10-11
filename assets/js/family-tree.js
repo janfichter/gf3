@@ -131,6 +131,7 @@
                 view.update(props || {});
                 setTimeout(function() {
                     addLinkIconsToCards(data.nodes, container);
+                    addHiddenMarkToCards(data.nodes, container);
                     attachClickHandlers(container, store);
                 }, 50);
             });
@@ -213,11 +214,11 @@
         var pageTitle = encodeURIComponent(document.title);
 
         var shareLinks = [
-            { label: 'ВКонтакте', url: 'https://vk.com/share.php?url=' + pageUrl, icon: 'VK' },
-            { label: 'Telegram', url: 'https://t.me/share/url?url=' + pageUrl + '&text=' + pageTitle, icon: 'TG' },
-            { label: 'Одноклассники', url: 'https://ok.ru/dk?st.cmd=addShare&st.surl=' + pageUrl, icon: 'OK' },
-            { label: 'WhatsApp', url: 'https://api.whatsapp.com/send?text=' + pageTitle + '%20' + pageUrl, icon: 'WA' },
-            { label: 'Twitter / X', url: 'https://twitter.com/intent/tweet?url=' + pageUrl + '&text=' + pageTitle, icon: 'X' }
+            { label: 'ВКонтакте', url: 'https://vk.com/share.php?url=' + pageUrl, svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M21.547 7h-3.29a.743.743 0 00-.655.392s-1.312 2.416-1.734 3.23C14.734 12.813 14 12.126 14 11.11V7.603A1.104 1.104 0 0012.896 6.5h-2.474a1.982 1.982 0 00-1.75.813s1.255-.204 1.255 1.49c0 .42.022 1.626.04 2.64a.73.73 0 01-1.272.503 21.54 21.54 0 01-2.498-4.543.693.693 0 00-.63-.403h-2.99a.508.508 0 00-.48.685C3.005 10.175 6.918 18 11.38 18h1.878a.742.742 0 00.742-.742v-1.135a.73.73 0 011.23-.53l2.247 2.112a1.09 1.09 0 00.746.295h2.953c1.424 0 1.424-.988.647-1.753-.546-.538-2.518-2.617-2.518-2.617a1.02 1.02 0 01.078-1.323c.637-.839 1.68-2.207 1.68-2.207.822-.928.658-1.374.658-1.374-.04-.506-.392-.742-.868-.742z"/></svg>' },
+            { label: 'Telegram', url: 'https://t.me/share/url?url=' + pageUrl + '&text=' + pageTitle, svg: '<svg viewBox="0 0 512 512" width="18" height="18" fill="currentColor"><path d="M470.4354553,45.4225006L16.8273029,221.2490387c-18.253809,8.1874695-24.4278889,24.5854034-4.4127407,33.4840851l116.3710175,37.1726685l281.3674316-174.789505c15.3625488-10.9733887,31.0910339-8.0470886,17.5573425,4.023468L186.0532227,341.074646l-7.5913849,93.0762329c7.0313721,14.3716125,19.9055786,14.4378967,28.1172485,7.2952881l66.8582916-63.5891418l114.5050659,86.1867065c26.5942688,15.8265076,41.0652466,5.6130371,46.7870789-23.3935242L509.835083,83.1804428C517.6329956,47.474514,504.3345032,31.7425518,470.4354553,45.4225006z"/></svg>' },
+            { label: 'Одноклассники', url: 'https://ok.ru/dk?st.cmd=addShare&st.surl=' + pageUrl, svg: '<svg viewBox="0 0 32 32" width="18" height="18" fill="currentColor"><path d="M120.001,753.38c10.372,0,18.807-8.435,18.807-18.807c0-10.362-8.435-18.799-18.807-18.799 c-10.362,0-18.807,8.437-18.807,18.799C101.194,744.945,109.639,753.38,120.001,753.38z M120.001,689.164 c25.055,0,45.422,20.367,45.422,45.409c0,25.052-20.367,45.427-45.422,45.427c-25.049,0-45.422-20.375-45.422-45.427 C74.579,709.532,94.952,689.164,120.001,689.164z M138.378,652.109c9.247,2.107,18.165,5.765,26.377,10.925 c6.215,3.917,8.089,12.134,4.172,18.35c-3.912,6.23-12.124,8.103-18.35,4.186c-18.605-11.703-42.561-11.698-61.156,0 c-6.227,3.917-14.438,2.043-18.346-4.186c-3.917-6.221-2.049-14.433,4.168-18.35c8.211-5.154,17.129-8.818,26.376-10.925 l-25.395-25.394c-5.192-5.197-5.192-13.621,0.005-18.817c2.601-2.596,6.004-3.897,9.406-3.897c3.408,0,6.816,1.3,9.417,3.897 l24.943,24.954l24.965-24.954c5.192-5.197,13.616-5.197,18.812,0c5.202,5.196,5.202,13.626,0,18.817 C163.773,626.715,138.378,652.109,138.378,652.109z" transform="matrix(.125 0 0 -.125 0 102.5)"/></svg>' },
+            { label: 'WhatsApp', url: 'https://api.whatsapp.com/send?text=' + pageTitle + '%20' + pageUrl, svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>' },
+            { label: 'Twitter / X', url: 'https://twitter.com/intent/tweet?url=' + pageUrl + '&text=' + pageTitle, svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>' }
         ];
 
         shareLinks.forEach(function(item) {
@@ -226,20 +227,20 @@
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.className = 'ft-share-item';
-            link.innerHTML = '<span class="ft-share-icon">' + item.icon + '</span>' + item.label;
+            link.innerHTML = '<span class="ft-share-icon">' + item.svg + '</span>' + item.label;
             shareDropdown.appendChild(link);
         });
 
         var copyBtn = document.createElement('button');
         copyBtn.className = 'ft-share-item ft-copy-link';
-        copyBtn.innerHTML = '<span class="ft-share-icon">&#128203;</span>Копировать ссылку';
+        copyBtn.innerHTML = '<span class="ft-share-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>Копировать ссылку';
         copyBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             navigator.clipboard.writeText(window.location.href).then(function() {
-                copyBtn.innerHTML = '<span class="ft-share-icon">&#10003;</span>Скопировано!';
+                copyBtn.innerHTML = '<span class="ft-share-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Скопировано!';
                 setTimeout(function() {
-                    copyBtn.innerHTML = '<span class="ft-share-icon">&#128203;</span>Копировать ссылку';
+                    copyBtn.innerHTML = '<span class="ft-share-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>Копировать ссылку';
                 }, 2000);
             }).catch(function() {
                 var tmp = document.createElement('input');
@@ -248,9 +249,9 @@
                 tmp.select();
                 document.execCommand('copy');
                 document.body.removeChild(tmp);
-                copyBtn.innerHTML = '<span class="ft-share-icon">&#10003;</span>Скопировано!';
+                copyBtn.innerHTML = '<span class="ft-share-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Скопировано!';
                 setTimeout(function() {
-                    copyBtn.innerHTML = '<span class="ft-share-icon">&#128203;</span>Копировать ссылку';
+                    copyBtn.innerHTML = '<span class="ft-share-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>Копировать ссылку';
                 }, 2000);
             });
         });
@@ -773,6 +774,62 @@ function buildScreenshotCanvas(clonedSvg, svgEl, fullW, fullH, headerH, btn) {
         } catch (error) {
             console.error('Ошибка в addLinkIconsToCards:', error);
         }
+    }
+
+    function addHiddenMarkToCards(nodesData, container) {
+        try {
+            nodesData.forEach(function(node) {
+                if (!node.hidden) return;
+                var personId = node.id;
+                if (!personId) return;
+
+                var cardElement = container.querySelector('.card[data-id="' + personId + '"]');
+                if (!cardElement) return;
+                if (cardElement.querySelector('.person-hidden-mark')) return;
+
+                try {
+                    var cardBody = cardElement.querySelector('.card-body');
+                    if (!cardBody) return;
+
+                    var cardRect = cardBody.querySelector('.card-body-rect');
+                    var cardWidth = cardRect ? (parseFloat(cardRect.getAttribute('width')) || 220) : 220;
+
+                    // Позиция и размер совпадают с иконкой-лупой (addLinkIconsToCards):
+                    // правый верхний угол карточки.
+                    var markSize = 20;
+                    var markMargin = 5;
+                    var markX = Math.max(markMargin, cardWidth - markSize - markMargin);
+
+                    var mark = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    mark.setAttribute('class', 'person-hidden-mark');
+                    mark.setAttribute('transform', 'translate(' + markX + ', ' + markMargin + ')');
+                    mark.style.cursor = 'pointer';
+
+                    // Круглая белая подложка — как у лупы
+                    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', '10');
+                    circle.setAttribute('cy', '10');
+                    circle.setAttribute('r', '9');
+                    circle.setAttribute('fill', 'white');
+                    circle.setAttribute('stroke', '#ffb0b0');
+                    circle.setAttribute('stroke-width', '1');
+
+                    var titleElement = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                    titleElement.textContent = 'Скрыто администратором';
+
+                    // Закрытый глаз (Material "visibility_off")
+                    var iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    iconPath.setAttribute('d', 'M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z');
+                    iconPath.setAttribute('fill', '#8b4a4a');
+                    iconPath.setAttribute('transform', 'scale(0.5) translate(10, 10)');
+
+                    mark.appendChild(circle);
+                    mark.appendChild(iconPath);
+                    mark.appendChild(titleElement);
+                    cardBody.appendChild(mark);
+                } catch (e) {}
+            });
+        } catch (error) {}
     }
 
     // ===========================
