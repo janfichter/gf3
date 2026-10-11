@@ -1,0 +1,243 @@
+/* Genius Family Tree — блоки Гутенберга (редактор): зелёные иконки в инсертере,
+   превью-карточка блока и списки с автодополнением по slug */
+
+/* --- Иконки блоков и категории в инсертере ---
+   WP оборачивает иконки блоков в .block-editor-block-icon(.has-colors) и задаёт
+   svg { fill: currentColor }. Перебиваем его правилом с большей специфичностью
+   и !important — иконки Genius Family Tree всегда зелёные, без тёмной заливки. */
+.gft-iblk-icon,
+.gft-iblk-icon svg {
+	display: inline-flex;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
+
+.block-editor-block-icon.has-colors .gft-iblk-icon svg,
+.block-editor-block-icon .gft-iblk-icon svg {
+	fill: none !important;
+	stroke: #7B872C !important;
+	stroke-width: 1.7 !important;
+	stroke-linecap: round !important;
+	stroke-linejoin: round !important;
+	color: #7B872C;
+	background: transparent !important;
+}
+
+/* У иконок Genius Family Tree не должно быть тёмных фоновых плиток:
+   убираем фон у обёртки блок-иконки и у ячейки списка инсертера. */
+.block-editor-block-icon:has(> .gft-iblk-icon),
+.block-editor-block-icon.has-colors:has(> .gft-iblk-icon) {
+	background: transparent !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	width: 24px;
+	height: 24px;
+	margin: 0;
+}
+
+.block-editor-block-types-list__item-icon:has(.gft-iblk-icon) {
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+.block-editor-block-preview__content .block-editor-block-icon:has(> .gft-iblk-icon) {
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+/* Заголовок категории «Genius Family Tree» в инсертере */
+.block-editor-inserter__panel-header img {
+	width: 22px;
+	height: 22px;
+	object-fit: contain;
+}
+
+/* --- Превью-карточка блока в редакторе --- */
+.gft-preview-wrap {
+	border: none !important;
+	background: none !important;
+}
+
+.wp-block.gft-preview-wrap,
+.block-editor-block-list__block.gft-preview-wrap {
+	margin: 0;
+}
+
+.gft-preview {
+	border: 1px solid #d8ddb2;
+	border-radius: 10px;
+	background: #fbfcf5;
+	padding: 14px 16px 12px;
+	box-shadow: 0 1px 3px rgba(60, 73, 56, 0.08);
+}
+
+.gft-preview__head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.gft-preview__head .gft-iblk-icon {
+	width: 26px;
+	height: 26px;
+}
+
+.gft-preview__head .gft-iblk-icon svg {
+	width: 26px;
+	height: 26px;
+}
+
+.gft-preview__titles {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.gft-preview__title {
+	font-weight: 600;
+	font-size: 14px;
+	color: #3C4938;
+	line-height: 1.25;
+}
+
+.gft-preview__tag {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 11px;
+	color: #7B872C;
+	background: #f0f3dd;
+	border-radius: 4px;
+	padding: 0 6px;
+	display: inline-block;
+	width: fit-content;
+}
+
+.gft-preview__fields {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	margin: 12px 0;
+}
+
+.gft-preview__foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 14px;
+	padding-top: 10px;
+	border-top: 1px dashed #d8ddb2;
+	font-size: 12px;
+	color: #646970;
+}
+
+.gft-preview__warn {
+	color: #b13b3b;
+	font-weight: 600;
+}
+
+.gft-preview__sum {
+	color: #3C4938;
+}
+
+.gft-preview__hint {
+	opacity: 0.75;
+	margin-left: auto;
+}
+
+/* --- Список с автодополнением (персоны/альбомы) --- */
+.gft-autocomplete {
+	position: relative;
+}
+
+.gft-autocomplete__label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	margin-bottom: 5px;
+	color: #3C4938;
+}
+
+.gft-autocomplete__input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 8px 10px;
+	border: 1px solid #c5cd9a;
+	border-radius: 6px;
+	background: #ffffff;
+	font-size: 13px;
+	color: #1d2327;
+	box-shadow: none;
+}
+
+.gft-autocomplete__input:focus {
+	border-color: #7B872C;
+	box-shadow: 0 0 0 1px #7B872C;
+	outline: none;
+}
+
+.gft-autocomplete__help {
+	margin: 4px 0 0;
+	font-size: 12px;
+	color: #646970;
+	font-style: normal;
+}
+
+.gft-autocomplete__list {
+	position: absolute;
+	z-index: 99999;
+	left: 0;
+	right: 0;
+	top: 100%;
+	margin: 4px 0 0;
+	padding: 4px;
+	list-style: none;
+	background: #ffffff;
+	border: 1px solid #d8ddb2;
+	border-radius: 8px;
+	box-shadow: 0 6px 18px rgba(60, 73, 56, 0.16);
+	max-height: 250px;
+	overflow-y: auto;
+	box-sizing: border-box;
+}
+
+.gft-autocomplete__item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	justify-content: space-between;
+	padding: 7px 10px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 13px;
+	color: #3C4938;
+}
+
+.gft-autocomplete__item:hover,
+.gft-autocomplete__item.is-selected {
+	background: #f0f3dd;
+	color: #1d2327;
+}
+
+.gft-autocomplete__lbl {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gft-autocomplete__slug {
+	flex: 0 0 auto;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 11px;
+	color: #7B872C;
+}
+
+.gft-autocomplete__empty {
+	padding: 9px 10px;
+	font-size: 12px;
+	color: #646970;
+	font-style: italic;
+}
