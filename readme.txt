@@ -4,7 +4,7 @@ Developer URL: https://xn----8sbbdpda1c7cwf.xn--p1ai/product-category/genius-fam
 Tags: family, tree, genealogy, gedcom
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 1.4.3
+Stable tag: 1.4.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Plugin for creating and displaying interactive family trees on a WordPress site 
 
 == Description ==
 
-Genius Family Tree is a powerful tool for creating and visualizing family trees. Version 1.4.3 includes many improvements and new features.
+Genius Family Tree is a powerful tool for creating and visualizing family trees. Version 1.4.4 includes many improvements and new features.
 
 🚀 **Key features:**
 
@@ -37,6 +37,15 @@ Genius Family Tree is a powerful tool for creating and visualizing family trees.
 * **Redesigned admin dashboard** — plugin logo, description, quick links, and expanded tips of the day
 
 == Changelog ==
+
+= 1.4.4 =
+* **NEW**: Photo albums for each family member — create an album and add photos right from the members list or the person edit page (Media Library)
+* **NEW**: "Family Archive" admin page with appearance settings for photo albums (container, title, layout, captions, image effects)
+* **NEW**: Album layout modes — grid, masonry, and carousel, each with own desktop/tablet/mobile column counts
+* **NEW**: Optional photo captions (below, above, or overlay on hover) with custom color, font, and background
+* **NEW**: Image effects — corner radius, border, and shadow
+* **NEW**: Official GLightbox lightbox on person pages — full-screen photo viewing with keyboard and touch navigation
+* **IMPROVED**: Settings page and plugin assets bumped to version 1.4.4
 
 = 1.4.3 =
 * **NEW**: Toolbar in the lower-right corner of the interactive tree
